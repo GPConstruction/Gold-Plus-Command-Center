@@ -4108,6 +4108,7 @@ async function fleetCall(method, extraParams) {
       user_pwd_md5: FLEET_PWD_MD5,
       expires_in: '7200',
       format: 'json',
+      sign_method: 'md5',
       v: '0.9',
     };
     tokenParams.sign = fleetSign(tokenParams);
@@ -4120,7 +4121,7 @@ async function fleetCall(method, extraParams) {
     });
     const data = await res.json();
     if (!data.ok && data.code !== 0) throw new Error('Auth failed: ' + (data.msg || data.message || JSON.stringify(data)));
-    const td = data.data || {};
+    const td = data.result || data.data || {};
     fleetToken = td.accessToken || td.access_token || td.token;
     fleetTokenExpiry = Date.now() + 6000000;
     if (!fleetToken) throw new Error('No token in response: ' + JSON.stringify(data));
@@ -4132,6 +4133,7 @@ async function fleetCall(method, extraParams) {
     app_key: FLEET_APP_KEY,
     access_token: fleetToken,
     format: 'json',
+    sign_method: 'md5',
     v: '0.9',
     ...(extraParams || {}),
   };
