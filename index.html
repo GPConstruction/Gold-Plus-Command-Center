@@ -4194,21 +4194,19 @@ async function loadFleet() {
   veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">Connecting to TrackSolid Pro…</div>';
 
   try {
-    // Get device list
-    const devData = await fleetCall('jimi.user.device.list', { target: 'gold888', page_index: 1, page_size: 50 });
-    if (devData.code !== 0) throw new Error(devData.message || devData.msg || 'Failed to get devices');
+    // Get all devices with live location in one call
+    const locData = await fleetCall('jimi.user.device.location.list', { target: 'gold888', map_type: 'GOOGLE' });
+    if (locData.code !== 0) throw new Error(locData.message || locData.msg || 'Failed to get devices');
 
-    const devices = devData.result || devData.data?.list || devData.data || [];
+    const devices = locData.result || [];
     if (!devices.length) {
       veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">No vehicles found in your account.</div>';
       return;
     }
 
-    // Get real-time location for all devices
-    const imeis = devices.map(d => d.imei || d.device_id).join(',');
-    const locData = await fleetCall('jimi.track.device.detail', { imeis, language: '0' });
+    // Location data is already in devices array
     const locs = {};
-    (locData.result || (locData.data && locData.data.list) || locData.data || []).forEach(l => { locs[l.imei || l.device_id] = l; });
+    devices.forEach(l => { locs[l.imei] = l; });
 
     // Build KPIs
     let moving = 0, atBase = 0, offline = 0;
