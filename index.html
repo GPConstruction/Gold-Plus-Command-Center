@@ -4295,38 +4295,42 @@ function haversine(lat1, lng1, lat2, lng2) {
 }
 
 // Load daily mileage for all vehicles
-async function loadDailyMileage() {
+async function loadDailyMileage(imeiList) {
   const today = new Date();
-  const dateStr = today.toISOString().slice(0,10).replace(/-/g,'');
+  const d = today.toISOString().slice(0,10);
+  const begin_time = d + ' 00:00:00';
+  const end_time   = d + ' 23:59:59';
   const results = {};
+  if (!imeiList || !imeiList.length) return results;
   try {
-    for (const imei of LORRIES) {
-      const data = await fleetCall('jimi.device.track.mileage', {
-        imei, start_time: dateStr + '000000', end_time: dateStr + '235959'
-      });
-      if (data && data.data) results[imei] = parseFloat(data.data.mileage || 0);
+    const data = await fleetCall('jimi.device.track.mileage', {
+      imeis: imeiList.join(','), begin_time, end_time
+    });
+    if (data.code === 0 && data.data) {
+      data.data.forEach(d => { results[d.imei] = parseFloat(d.totalMileage || 0) / 1000; });
     }
   } catch(e) { console.warn('Mileage error:', e); }
   return results;
 }
 
 // Load trip history for clock in/out detection
-async function loadTripHistory() {
+async function loadTripHistory(imeiList) {
   const today = new Date();
-  const dateStr = today.toISOString().slice(0,10).replace(/-/g,'');
+  const d = today.toISOString().slice(0,10);
+  const begin_time = d + ' 00:00:00';
+  const end_time   = d + ' 23:59:59';
   const attendance = {};
+  if (!imeiList || !imeiList.length) return attendance;
 
-  for (const imei of LORRIES) {
+  for (const imei of imeiList) {
     try {
       const data = await fleetCall('jimi.device.track.list', {
         imei,
-        start_time: dateStr + '080000', // From 8AM
-        end_time: dateStr + '235959',
-        page_index: 1,
-        page_size: 1000
+        begin_time,
+        end_time,
       });
 
-      const points = (data.data && data.data.list) || [];
+      const points = data.result || (data.data && data.data.list) || [];
       if (!points.length) continue;
 
       // Clock IN: first departure from base after 7:30AM
@@ -4430,9 +4434,18 @@ async function loadFleetEnhanced() {
   const sync = document.getElementById('fleet-sync');
   if (sync) sync.textContent = 'Loading attendance & mileage…';
 
+  // Get live device list to get real IMEIs
+  let imeiList = [];
+  try {
+    const locData = await fleetCall('jimi.user.device.location.list', { target: 'gold888' });
+    if (locData.code === 0 && locData.result) {
+      imeiList = locData.result.map(d => d.imei).filter(Boolean);
+    }
+  } catch(e) { console.warn('Could not fetch IMEIs:', e); }
+
   const [attendance, mileage] = await Promise.allSettled([
-    loadTripHistory(),
-    loadDailyMileage()
+    loadTripHistory(imeiList),
+    loadDailyMileage(imeiList)
   ]);
 
   renderAttendance(
