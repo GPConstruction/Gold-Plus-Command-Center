@@ -267,10 +267,10 @@
   <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:320px;text-align:center">
     <div style="font-size:24px;font-weight:700;color:#D4AF37;margin-bottom:8px">G+</div>
     <div style="font-size:14px;color:#888;margin-bottom:24px">Gold Plus Command Center</div>
-    <input id="pw-input" type="password" placeholder="Enter password" 
+    <input id="pw-input" type="password" placeholder="Enter password"
       style="width:100%;padding:10px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#fff;font-size:14px;margin-bottom:12px;box-sizing:border-box"
       onkeydown="if(event.key==='Enter')checkPw()">
-    <button onclick="checkPw()" 
+    <button onclick="checkPw()"
       style="width:100%;padding:10px;background:#D4AF37;border:none;border-radius:6px;color:#000;font-size:14px;font-weight:600;cursor:pointer">
       Enter
     </button>
@@ -287,14 +287,13 @@ function checkPw() {
     document.getElementById('pw-error').style.display = 'block';
   }
 }
-// Auto-login if already authenticated
 if (localStorage.getItem('gpc_auth') === '1') {
   document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('auth-screen').style.display = 'none';
+    var s = document.getElementById('auth-screen');
+    if (s) s.style.display = 'none';
   });
 }
 </script>
-
 
 <header>
   <div class="logo">G+<span> &nbsp;Gold Plus</span> Command Center</div>
@@ -899,6 +898,17 @@ if (localStorage.getItem('gpc_auth') === '1') {
 
   <!-- KPI strip -->
   <div class="quot-kpi-grid" id="fleet-kpis" style="margin-bottom:16px"></div>
+
+  <!-- Attendance & Mileage -->
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:10px">
+      Today's Attendance & Mileage
+      <button onclick="loadFleetEnhanced()" style="margin-left:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text2);font-size:10px;cursor:pointer">↻ Refresh</button>
+    </div>
+    <div id="fleet-attendance" style="color:var(--text3);font-size:13px;padding:12px 0">
+      Connect TrackSolid to see attendance data
+    </div>
+  </div>
 
   <!-- Vehicle cards -->
   <div id="fleet-vehicles"></div>
@@ -4021,7 +4031,11 @@ const FLEET_APP_KEY  = '8FB345B8693CCD006AC7146708F84E82';
 const FLEET_SECRET   = '3a50c171d4e64fbc8184835f982b165b';
 const FLEET_USER_ID  = '2273740';
 const FLEET_PWD_MD5  = 'b7769b49af4953a5093a54e3d313c1c5';
-const FLEET_API_URL  = 'https://hk-open.tracksolidpro.com/route/rest';
+// ── TrackSolid API ──────────────────────────────────────────────────────────
+// Replace CLOUDFLARE_WORKER_URL with your Cloudflare Worker URL once deployed
+// e.g. 'https://delicate-salad-0c4c.weijian2073.workers.dev'
+const CLOUDFLARE_WORKER_URL = 'https://delicate-salad-0c4c.weijian2073.workers.dev';
+const FLEET_API_URL = CLOUDFLARE_WORKER_URL || 'https://corsproxy.io/?' + encodeURIComponent('https://hk-open.tracksolidpro.com/route/rest');
 // Base: 47 Tuas View Loop, Singapore (approx coords)
 const BASE_LAT = 1.3206;
 const BASE_LNG = 103.6397;
@@ -4242,6 +4256,174 @@ async function loadFleet() {
     sync.textContent = 'Error';
     veh.innerHTML = `<div style="padding:20px;color:#e07070;font-size:13px">⚠ Could not load fleet data: ${e.message}</div>`;
   }
+}
+
+
+// ══════════════════════════════════════════
+// FLEET — ATTENDANCE & MILEAGE
+// ══════════════════════════════════════════
+
+const LORRIES = ['9469','3759','5718','72','5675','5377','5687','4914'];
+const BASE_GEOFENCE_M = 700;
+
+// Calculate distance between two coords in metres
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+    Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Load daily mileage for all vehicles
+async function loadDailyMileage() {
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0,10).replace(/-/g,'');
+  const results = {};
+  try {
+    for (const imei of LORRIES) {
+      const data = await fleetCall('jimi.vehicle.mileage.get', {
+        imei, start_time: dateStr + '000000', end_time: dateStr + '235959'
+      });
+      if (data && data.data) results[imei] = parseFloat(data.data.mileage || 0);
+    }
+  } catch(e) { console.warn('Mileage error:', e); }
+  return results;
+}
+
+// Load trip history for clock in/out detection
+async function loadTripHistory() {
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0,10).replace(/-/g,'');
+  const attendance = {};
+
+  for (const imei of LORRIES) {
+    try {
+      const data = await fleetCall('jimi.track.history.get', {
+        imei,
+        start_time: dateStr + '080000', // From 8AM
+        end_time: dateStr + '235959',
+        page_index: 1,
+        page_size: 1000
+      });
+
+      const points = (data.data && data.data.list) || [];
+      if (!points.length) continue;
+
+      // Clock IN: first departure from base after 7:30AM
+      let clockIn = null;
+      for (const p of points) {
+        const lat = parseFloat(p.lat || p.latitude || 0);
+        const lng = parseFloat(p.lng || p.longitude || 0);
+        const dist = haversine(lat, lng, BASE_LAT, BASE_LNG);
+        if (dist > BASE_GEOFENCE_M && !clockIn) {
+          clockIn = p.gps_time || p.locate_time;
+          break;
+        }
+      }
+
+      // Clock OUT: LAST arrival at base after 5PM
+      let clockOut = null;
+      const afternoonPoints = points.filter(p => {
+        const t = p.gps_time || p.locate_time || '';
+        const hour = parseInt(t.slice(8,10) || t.slice(11,13) || '0');
+        return hour >= 17; // After 5PM
+      });
+
+      // Find last point within base radius after 5PM
+      for (let i = afternoonPoints.length - 1; i >= 0; i--) {
+        const p = afternoonPoints[i];
+        const lat = parseFloat(p.lat || p.latitude || 0);
+        const lng = parseFloat(p.lng || p.longitude || 0);
+        const dist = haversine(lat, lng, BASE_LAT, BASE_LNG);
+        if (dist <= BASE_GEOFENCE_M) {
+          clockOut = p.gps_time || p.locate_time;
+          break;
+        }
+      }
+
+      if (clockIn || clockOut) {
+        attendance[imei] = { clockIn, clockOut };
+      }
+    } catch(e) { console.warn('Trip history error for', imei, e); }
+  }
+  return attendance;
+}
+
+// Format time from TrackSolid timestamp
+function formatFleetTime(ts) {
+  if (!ts) return '—';
+  // ts format: YYYYMMDDHHmmss or YYYY-MM-DD HH:mm:ss
+  try {
+    let h, m;
+    if (ts.includes('-') || ts.includes(':')) {
+      const d = new Date(ts);
+      h = d.getHours(); m = d.getMinutes();
+    } else {
+      h = parseInt(ts.slice(8,10)); m = parseInt(ts.slice(10,12));
+    }
+    return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+  } catch(e) { return ts; }
+}
+
+// Render attendance table in fleet tab
+function renderAttendance(attendance, mileage) {
+  const wrap = document.getElementById('fleet-attendance');
+  if (!wrap) return;
+
+  const rows = LORRIES.map(imei => {
+    const a = attendance[imei] || {};
+    const km = mileage[imei] || 0;
+    const hours = a.clockIn && a.clockOut ? (() => {
+      try {
+        const inT = new Date(a.clockIn.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+        const outT = new Date(a.clockOut.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+        const diff = (outT - inT) / 3600000;
+        return diff > 0 ? diff.toFixed(1) + 'h' : '—';
+      } catch(e) { return '—'; }
+    })() : '—';
+
+    const ot = hours !== '—' && parseFloat(hours) > 10 ? ' ⚠' : '';
+    const kmColor = km > 200 ? '#e07070' : km > 100 ? '#e0a050' : 'var(--text1)';
+
+    return '<tr>' +
+      '<td><strong>SG ' + imei + 'U</strong></td>' +
+      '<td>' + (a.clockIn ? formatFleetTime(a.clockIn) : '<span style="color:var(--text3)">—</span>') + '</td>' +
+      '<td>' + (a.clockOut ? formatFleetTime(a.clockOut) : '<span style="color:var(--text3)">No return yet</span>') + '</td>' +
+      '<td>' + hours + ot + '</td>' +
+      '<td style="color:' + kmColor + '">' + (km > 0 ? km + ' km' : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  wrap.innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    '<thead><tr style="background:var(--card-dark,#1a1a1a)">' +
+    '<th style="padding:8px;text-align:left;color:var(--gold)">Lorry</th>' +
+    '<th style="padding:8px;text-align:center;color:var(--gold)">Clock In</th>' +
+    '<th style="padding:8px;text-align:center;color:var(--gold)">Clock Out</th>' +
+    '<th style="padding:8px;text-align:center;color:var(--gold)">Hours</th>' +
+    '<th style="padding:8px;text-align:center;color:var(--gold)">Today km</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+// Enhanced loadFleet that also loads attendance + mileage
+async function loadFleetEnhanced() {
+  const sync = document.getElementById('fleet-sync');
+  if (sync) sync.textContent = 'Loading attendance & mileage…';
+
+  const [attendance, mileage] = await Promise.allSettled([
+    loadTripHistory(),
+    loadDailyMileage()
+  ]);
+
+  renderAttendance(
+    attendance.status === 'fulfilled' ? attendance.value : {},
+    mileage.status === 'fulfilled' ? mileage.value : {}
+  );
+
+  if (sync) sync.textContent = 'Updated ' + new Date().toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
 }
 
 switchTab('works');
