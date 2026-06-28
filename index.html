@@ -4097,9 +4097,8 @@ function md5(str) {
 }
 
 function fleetTimestamp() {
-  // TrackSolid server is UTC+8 — must use SGT not UTC
-  const d = new Date(Date.now() + 8 * 3600000);
-  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0')+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+':'+String(d.getUTCSeconds()).padStart(2,'0');
+  // TrackSolid Pro open API (hk-open) requires Unix epoch seconds, not datetime string
+  return String(Math.floor(Date.now() / 1000));
 }
 
 async function fleetCall(method, extraParams) {
