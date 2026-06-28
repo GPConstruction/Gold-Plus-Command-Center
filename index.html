@@ -4114,7 +4114,7 @@ async function fleetCall(method, extraParams) {
       expires_in: '7200',
       format: 'json',
       sign_method: 'md5',
-      v: '0.9',
+      v: '1.0',
     };
     tokenParams.sign = fleetSign(tokenParams);
     const body = Object.keys(tokenParams).sort().map(k => k+'='+encodeURIComponent(tokenParams[k])).join('&');
@@ -4138,7 +4138,7 @@ async function fleetCall(method, extraParams) {
     access_token: fleetToken,
     format: 'json',
     sign_method: 'md5',
-    v: '0.9',
+    v: '1.0',
     ...(extraParams || {}),
   };
   params.sign = fleetSign(params);
