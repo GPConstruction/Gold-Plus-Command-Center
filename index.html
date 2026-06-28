@@ -4195,10 +4195,10 @@ async function loadFleet() {
 
   try {
     // Get device list
-    const devData = await fleetCall('jimi.device.list', { page_index: 1, page_size: 50 });
-    if (!devData.ok) throw new Error(devData.msg || 'Failed to get devices');
+    const devData = await fleetCall('jimi.user.device.list', { target: 'gold888', page_index: 1, page_size: 50 });
+    if (devData.code !== 0) throw new Error(devData.message || devData.msg || 'Failed to get devices');
 
-    const devices = devData.data.list || devData.data || [];
+    const devices = devData.result || devData.data?.list || devData.data || [];
     if (!devices.length) {
       veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">No vehicles found in your account.</div>';
       return;
@@ -4208,7 +4208,7 @@ async function loadFleet() {
     const imeis = devices.map(d => d.imei || d.device_id).join(',');
     const locData = await fleetCall('jimi.track.device.detail', { imeis, language: '0' });
     const locs = {};
-    ((locData.data && locData.data.list) || locData.data || []).forEach(l => { locs[l.imei || l.device_id] = l; });
+    (locData.result || (locData.data && locData.data.list) || locData.data || []).forEach(l => { locs[l.imei || l.device_id] = l; });
 
     // Build KPIs
     let moving = 0, atBase = 0, offline = 0;
@@ -4303,7 +4303,7 @@ async function loadDailyMileage() {
   const results = {};
   try {
     for (const imei of LORRIES) {
-      const data = await fleetCall('jimi.vehicle.mileage.get', {
+      const data = await fleetCall('jimi.device.track.mileage', {
         imei, start_time: dateStr + '000000', end_time: dateStr + '235959'
       });
       if (data && data.data) results[imei] = parseFloat(data.data.mileage || 0);
@@ -4320,7 +4320,7 @@ async function loadTripHistory() {
 
   for (const imei of LORRIES) {
     try {
-      const data = await fleetCall('jimi.track.history.get', {
+      const data = await fleetCall('jimi.device.track.list', {
         imei,
         start_time: dateStr + '080000', // From 8AM
         end_time: dateStr + '235959',
