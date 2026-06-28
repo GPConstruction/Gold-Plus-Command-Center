@@ -4097,8 +4097,8 @@ function md5(str) {
 }
 
 function fleetTimestamp() {
-  // TrackSolid requires "YYYY-MM-DD HH:MM:SS" in SGT (UTC+8)
-  const d = new Date(Date.now() + 8 * 3600000);
+  // TrackSolid requires "YYYY-MM-DD HH:MM:SS" in UTC
+  const d = new Date();
   return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0')+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+':'+String(d.getUTCSeconds()).padStart(2,'0');
 }
 
