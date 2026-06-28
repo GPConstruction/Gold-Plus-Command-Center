@@ -4046,9 +4046,13 @@ let fleetTokenExpiry = 0;
 let fleetCache = null;
 
 function fleetSign(params) {
-  const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
+  // Exclude 'sign' from signature calculation, sort remaining keys
+  const sorted = Object.keys(params)
+    .filter(k => k !== 'sign')
+    .sort()
+    .map(k => k + params[k])
+    .join('');
   const str = FLEET_SECRET + sorted + FLEET_SECRET;
-  // MD5 in browser
   return md5(str).toUpperCase();
 }
 
@@ -4093,7 +4097,8 @@ function md5(str) {
 }
 
 function fleetTimestamp() {
-  const d = new Date();
+  // TrackSolid server is UTC+8 — must use SGT not UTC
+  const d = new Date(Date.now() + 8 * 3600000);
   return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0')+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+':'+String(d.getUTCSeconds()).padStart(2,'0');
 }
 
@@ -4112,7 +4117,6 @@ async function fleetCall(method, extraParams) {
       v: '0.9',
     };
     tokenParams.sign = fleetSign(tokenParams);
-    // Send as URL params (GET-style POST body)
     const body = Object.keys(tokenParams).sort().map(k => k+'='+encodeURIComponent(tokenParams[k])).join('&');
     const res = await fetch(FLEET_API_URL, {
       method: 'POST',
