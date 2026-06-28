@@ -4117,13 +4117,24 @@ async function fleetCall(method, extraParams) {
     };
     tokenParams.sign = fleetSign(tokenParams);
     const body = Object.keys(tokenParams).sort().map(k => k+'='+encodeURIComponent(tokenParams[k])).join('&');
-    const res = await fetch(FLEET_API_URL, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body,
-    });
-    const data = await res.json();
+    console.log('[Fleet] Worker URL:', FLEET_API_URL);
+    console.log('[Fleet] POST body:', body);
+    let res, rawText;
+    try {
+      res = await fetch(FLEET_API_URL, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body,
+      });
+      rawText = await res.text();
+      console.log('[Fleet] HTTP status:', res.status);
+      console.log('[Fleet] Raw response:', rawText);
+    } catch(fetchErr) {
+      console.log('[Fleet] Fetch error:', fetchErr);
+      throw fetchErr;
+    }
+    const data = JSON.parse(rawText);
     if (!data.ok && data.code !== 0) throw new Error('Auth failed: ' + (data.msg || data.message || JSON.stringify(data)));
     const td = data.result || data.data || {};
     fleetToken = td.accessToken || td.access_token || td.token;
