@@ -4118,10 +4118,9 @@ async function fleetCall(method, extraParams) {
     };
     tokenParams.sign = fleetSign(tokenParams);
     const body = Object.keys(tokenParams).sort().map(k => k+'='+encodeURIComponent(tokenParams[k])).join('&');
-    const res = await fetch(FLEET_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-      body
+    const res = await fetch(FLEET_API_URL + '?' + body, {
+      method: 'GET',
+      mode: 'cors'
     });
     const data = await res.json();
     if (!data.ok && data.code !== 0) throw new Error('Auth failed: ' + (data.msg || data.message || JSON.stringify(data)));
@@ -4143,10 +4142,9 @@ async function fleetCall(method, extraParams) {
   };
   params.sign = fleetSign(params);
   const body = Object.keys(params).sort().map(k => k+'='+encodeURIComponent(params[k])).join('&');
-  const res = await fetch(FLEET_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-    body
+  const res = await fetch(FLEET_API_URL + '?' + body, {
+    method: 'GET',
+    mode: 'cors'
   });
   const data = await res.json();
   if (data.code !== 0 && !data.ok) throw new Error((data.msg || data.message || JSON.stringify(data)));
