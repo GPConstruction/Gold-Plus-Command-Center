@@ -4000,9 +4000,10 @@ let fleetTokenExpiry = 0;
 let fleetCache = null;
 
 function fleetSign(params) {
-  const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
+  // Exclude sign and sign_method from the signature calculation
+  const filtered = Object.keys(params).filter(k => k !== 'sign' && k !== 'sign_method');
+  const sorted = filtered.sort().map(k => k + params[k]).join('');
   const str = FLEET_SECRET + sorted + FLEET_SECRET;
-  // MD5 in browser
   return md5(str).toUpperCase();
 }
 
@@ -4075,7 +4076,7 @@ async function fleetCall(method, extraParams) {
     });
     const data = await res.json();
     if (!data.ok && data.code !== 0) throw new Error('Auth failed: ' + (data.msg || data.message || JSON.stringify(data)));
-    const td = data.data || {};
+    const td = data.result || data.data || {};
     fleetToken = td.accessToken || td.access_token || td.token;
     fleetTokenExpiry = Date.now() + 6000000;
     if (!fleetToken) throw new Error('No token in response: ' + JSON.stringify(data));
