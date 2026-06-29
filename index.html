@@ -4063,6 +4063,7 @@ async function fleetCall(method, extraParams) {
       expires_in: '7200',
       format: 'json',
       v: '0.9',
+      sign_method: 'md5',
     };
     tokenParams.sign = fleetSign(tokenParams);
     // Send as URL params (GET-style POST body)
