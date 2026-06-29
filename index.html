@@ -263,37 +263,6 @@
 </style>
 </head>
 <body>
-<div id="auth-screen" style="position:fixed;inset:0;background:#0f0f0f;z-index:99999;display:flex;align-items:center;justify-content:center">
-  <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:320px;text-align:center">
-    <div style="font-size:24px;font-weight:700;color:#D4AF37;margin-bottom:8px">G+</div>
-    <div style="font-size:14px;color:#888;margin-bottom:24px">Gold Plus Command Center</div>
-    <input id="pw-input" type="password" placeholder="Enter password"
-      style="width:100%;padding:10px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#fff;font-size:14px;margin-bottom:12px;box-sizing:border-box"
-      onkeydown="if(event.key==='Enter')checkPw()">
-    <button onclick="checkPw()"
-      style="width:100%;padding:10px;background:#D4AF37;border:none;border-radius:6px;color:#000;font-size:14px;font-weight:600;cursor:pointer">
-      Enter
-    </button>
-    <div id="pw-error" style="color:#e07070;font-size:12px;margin-top:10px;display:none">Incorrect password</div>
-  </div>
-</div>
-<script>
-function checkPw() {
-  var pw = document.getElementById('pw-input').value;
-  if (pw === 'GoldPlus2026') {
-    document.getElementById('auth-screen').style.display = 'none';
-    localStorage.setItem('gpc_auth', '1');
-  } else {
-    document.getElementById('pw-error').style.display = 'block';
-  }
-}
-if (localStorage.getItem('gpc_auth') === '1') {
-  document.addEventListener('DOMContentLoaded', function() {
-    var s = document.getElementById('auth-screen');
-    if (s) s.style.display = 'none';
-  });
-}
-</script>
 
 <header>
   <div class="logo">G+<span> &nbsp;Gold Plus</span> Command Center</div>
@@ -899,17 +868,6 @@ if (localStorage.getItem('gpc_auth') === '1') {
   <!-- KPI strip -->
   <div class="quot-kpi-grid" id="fleet-kpis" style="margin-bottom:16px"></div>
 
-  <!-- Attendance & Mileage -->
-  <div style="margin-bottom:16px">
-    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:10px">
-      Today's Attendance & Mileage
-      <button onclick="loadFleetEnhanced()" style="margin-left:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text2);font-size:10px;cursor:pointer">↻ Refresh</button>
-    </div>
-    <div id="fleet-attendance" style="color:var(--text3);font-size:13px;padding:12px 0">
-      Connect TrackSolid to see attendance data
-    </div>
-  </div>
-
   <!-- Vehicle cards -->
   <div id="fleet-vehicles"></div>
 </div>
@@ -1030,6 +988,7 @@ if (localStorage.getItem('gpc_auth') === '1') {
   <div id="worker-table-wrap">
     <table id="worker-table">
       <thead><tr>
+        <th style="width:44px"></th>
         <th onclick="sortWorkers('ref')" data-col="ref">#</th>
         <th onclick="sortWorkers('name')" data-col="name">Name</th>
         <th onclick="sortWorkers('nationality')" data-col="nationality">Nationality</th>
@@ -1209,7 +1168,7 @@ const SKILLS = ['Supervisor','Driver','Welding / Metal','Tiling','Brick Walls','
 const WORKERS = [
   // Nationality: Bangladeshi
   { ref:1, name:'Hossain', nationality:'Bangladeshi', dob:'31/12/1975', fin:'G7157559X', wp:'0 61864164', expiry:'27/03/2028', skills:["Supervisor", "Plastering & Partition Works", "Electrical", "Civil", "Coretrade"] },
-  { ref:2, name:'Shaikh Mahasin', nationality:'Bangladeshi', dob:'10/05/1975', fin:'G7165953X', wp:'0 61916903', expiry:'16/06/2028', skills:["Supervisor", "Welding / Metal", "Coretrade"] },
+  { ref:2, name:'Shaikh Mahasin', nationality:'Bangladeshi', dob:'10/05/1975', fin:'G7165953X', wp:'0 61916903', expiry:'16/06/2028', skills:["Supervisor", "Welding / Metal", "Coretrade"], photo:'https://drive.google.com/uc?id=1ZORdWfloagikcbALvmVk2aUvVYGme41n' },
   { ref:3, name:'Miraz', nationality:'Bangladeshi', dob:'16/06/1983', fin:'G8494781X', wp:'0 62929480', expiry:'11/05/2027', skills:["Limited", "Coretrade"] },
   { ref:4, name:'Ahmmed Sujon', nationality:'Bangladeshi', dob:'15/01/1989', fin:'G2245966Q', wp:'0 64029487', expiry:'23/04/2028', skills:["Supervisor", "Plumber", "Aircon", "Coretrade"] },
   { ref:5, name:'Hamidul', nationality:'Bangladeshi', dob:'12/02/1983', fin:'G8379484X', wp:'0 62927143', expiry:'19/02/2027', skills:["Welding / Metal", "Civil", "Coretrade"] },
@@ -1221,7 +1180,7 @@ const WORKERS = [
   { ref:11, name:'Hossain Mohammad Arif', nationality:'Bangladeshi', dob:'27/08/1997', fin:'M3021673X', wp:'0 65023687', expiry:'25/07/2027', skills:["Limited"] },
   { ref:12, name:'Miah Md Gaffar', nationality:'Bangladeshi', dob:'27/10/1993', fin:'M3057254P', wp:'0 65240041', expiry:'30/01/2028', skills:["Plastering & Partition Works"] },
   { ref:13, name:'Sumon Mohammad', nationality:'Bangladeshi', dob:'24/04/1988', fin:'G2194263X', wp:'0 63905720', expiry:'27/03/2028', skills:["Plumber", "Coretrade"] },
-  { ref:14, name:'Hosen Mohammad Saddam', nationality:'Bangladeshi', dob:'25/03/1992', fin:'G2270048R', wp:'0 64031244', expiry:'11/09/2026', skills:["Driver", "Plastering & Partition Works", "Coretrade"] },
+  { ref:14, name:'Hosen Mohammad Saddam', nationality:'Bangladeshi', dob:'25/03/1992', fin:'G2270048R', wp:'0 64031244', expiry:'11/09/2026', skills:["Driver", "Plastering & Partition Works", "Coretrade"], photo:'https://drive.google.com/uc?id=1A6f7r1jeZbM2WaLq-PX9xvRkcretUdqS' },
   { ref:15, name:'Islam Mohammad Saiful', nationality:'Bangladeshi', dob:'03/05/1975', fin:'G7276461M', wp:'0 61944230', expiry:'30/07/2027', skills:["Driver", "Plastering & Partition Works", "Coretrade"] },
   { ref:16, name:'Mahmod Abdullah Al', nationality:'Bangladeshi', dob:'17/08/2000', fin:'M4589617R', wp:'0 6595849-', expiry:'23/04/2028', skills:["Limited"] },
   // Nationality: Indian
@@ -2338,16 +2297,20 @@ function renderWorkers() {
 
   const b = document.getElementById('worker-body');
   if (!list.length) {
-    b.innerHTML = '<tr><td colspan="8" class="no-results">No workers match your filters.</td></tr>';
+    b.innerHTML = '<tr><td colspan="9" class="no-results">No workers match your filters.</td></tr>';
     return;
   }
 
   b.innerHTML = Object.entries(groups).map(([nat, workers]) => {
-    const header = `<tr class="nat-header"><td colspan="8">Nationality: ${nat} — ${workers.length} worker${workers.length!==1?'s':''}</td></tr>`;
+    const header = `<tr class="nat-header"><td colspan="9">Nationality: ${nat} — ${workers.length} worker${workers.length!==1?'s':''}</td></tr>`;
     const rows = workers.map(w => {
       const skillPills = SKILLS.map(s => `<span class="skill-pill${w.skills.includes(s)?' has':''}">${s}</span>`).join('');
       const ec = expiryClass(w.expiry);
+      const photoCell = w.photo
+        ? `<td style="padding:6px 8px"><img src="${w.photo}" alt="${w.name}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div style="display:none;width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);align-items:center;justify-content:center;font-size:14px">👤</div></td>`
+        : `<td style="padding:6px 8px"><div style="width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px">👤</div></td>`;
       return `<tr>
+        ${photoCell}
         <td style="color:var(--text3)">${w.ref}</td>
         <td><strong>${w.name}</strong></td>
         <td><span class="tag tag-grey">${w.nationality}</span></td>
@@ -3210,7 +3173,7 @@ function renderWorkersFromSheet() {
 
   // Update sync time in worker tab
   const el = document.getElementById('worker-sheet-sync');
-  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
+  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})}`;
 }
 
 // ── Overhead Sheet Live Load ──
@@ -3319,7 +3282,7 @@ function renderOverheadsFromSheet() {
   renderOverheads();
 
   const el = document.getElementById('overhead-sheet-sync');
-  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
+  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})}`;
 }
 
 async function loadSheetData(forceRefresh) {
@@ -3382,7 +3345,7 @@ function parseMoney(s) {
 function renderWorksFromCache() {
   const { current, completed, clients, fetchedAt } = sheetCache;
   document.getElementById('works-last-updated').textContent =
-    `Last synced: ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})} · ${fetchedAt.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'})}`;
+    `Last synced: ${fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})} · ${fetchedAt.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'})}`;
 
   // ── Current Projects ──
   // headers: Project List, Client, Project Value, Start Date, End Date, Amount Received, Amount Remaining, Progress Payment
@@ -3919,7 +3882,7 @@ async function loadDeployments(forceRefresh) {
       `https://docs.google.com/spreadsheets/d/${DEPLOY_SHEET_ID}/edit`;
 
     document.getElementById('deploy-sync').textContent =
-      "Synced " + deployCache.fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
+      `Synced ${deployCache.fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})}`;
 
     renderDeployments();
   } catch(e) {
@@ -4029,13 +3992,9 @@ function fetchJSONP(url) {
 // ══════════════════════════════════════════
 const FLEET_APP_KEY  = '8FB345B8693CCD006AC7146708F84E82';
 const FLEET_SECRET   = '3a50c171d4e64fbc8184835f982b165b';
-const FLEET_USER_ID  = 'gold888';
+const FLEET_USER_ID  = '2273740';
 const FLEET_PWD_MD5  = 'b7769b49af4953a5093a54e3d313c1c5';
-// ── TrackSolid API ──────────────────────────────────────────────────────────
-// Replace CLOUDFLARE_WORKER_URL with your Cloudflare Worker URL once deployed
-// e.g. 'https://delicate-salad-0c4c.weijian2073.workers.dev'
-const CLOUDFLARE_WORKER_URL = 'https://delicate-salad-0c4c.weijian2073.workers.dev';
-const FLEET_API_URL = CLOUDFLARE_WORKER_URL || 'https://corsproxy.io/?' + encodeURIComponent('https://hk-open.tracksolidpro.com/route/rest');
+const FLEET_API_URL  = 'https://hk-open.tracksolidpro.com/route/rest';
 // Base: 47 Tuas View Loop, Singapore (approx coords)
 const BASE_LAT = 1.3206;
 const BASE_LNG = 103.6397;
@@ -4046,13 +4005,9 @@ let fleetTokenExpiry = 0;
 let fleetCache = null;
 
 function fleetSign(params) {
-  // Exclude 'sign' from signature calculation, sort remaining keys
-  const sorted = Object.keys(params)
-    .filter(k => k !== 'sign')
-    .sort()
-    .map(k => k + params[k])
-    .join('');
+  const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
   const str = FLEET_SECRET + sorted + FLEET_SECRET;
+  // MD5 in browser
   return md5(str).toUpperCase();
 }
 
@@ -4097,7 +4052,6 @@ function md5(str) {
 }
 
 function fleetTimestamp() {
-  // TrackSolid requires "YYYY-MM-DD HH:MM:SS" in UTC
   const d = new Date();
   return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0')+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+':'+String(d.getUTCSeconds()).padStart(2,'0');
 }
@@ -4113,31 +4067,19 @@ async function fleetCall(method, extraParams) {
       user_pwd_md5: FLEET_PWD_MD5,
       expires_in: '7200',
       format: 'json',
-      sign_method: 'md5',
-      v: '1.0',
+      v: '0.9',
     };
     tokenParams.sign = fleetSign(tokenParams);
+    // Send as URL params (GET-style POST body)
     const body = Object.keys(tokenParams).sort().map(k => k+'='+encodeURIComponent(tokenParams[k])).join('&');
-    console.log('[Fleet] Worker URL:', FLEET_API_URL);
-    console.log('[Fleet] POST body:', body);
-    let res, rawText;
-    try {
-      res = await fetch(FLEET_API_URL, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body,
-      });
-      rawText = await res.text();
-      console.log('[Fleet] HTTP status:', res.status);
-      console.log('[Fleet] Raw response:', rawText);
-    } catch(fetchErr) {
-      console.log('[Fleet] Fetch error:', fetchErr);
-      throw fetchErr;
-    }
-    const data = JSON.parse(rawText);
+    const res = await fetch(FLEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body
+    });
+    const data = await res.json();
     if (!data.ok && data.code !== 0) throw new Error('Auth failed: ' + (data.msg || data.message || JSON.stringify(data)));
-    const td = data.result || data.data || {};
+    const td = data.data || {};
     fleetToken = td.accessToken || td.access_token || td.token;
     fleetTokenExpiry = Date.now() + 6000000;
     if (!fleetToken) throw new Error('No token in response: ' + JSON.stringify(data));
@@ -4149,17 +4091,15 @@ async function fleetCall(method, extraParams) {
     app_key: FLEET_APP_KEY,
     access_token: fleetToken,
     format: 'json',
-    sign_method: 'md5',
-    v: '1.0',
+    v: '0.9',
     ...(extraParams || {}),
   };
   params.sign = fleetSign(params);
   const body = Object.keys(params).sort().map(k => k+'='+encodeURIComponent(params[k])).join('&');
   const res = await fetch(FLEET_API_URL, {
     method: 'POST',
-    mode: 'cors',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    body
   });
   const data = await res.json();
   if (data.code !== 0 && !data.ok) throw new Error((data.msg || data.message || JSON.stringify(data)));
@@ -4186,6 +4126,40 @@ function toggleVehicle(id) {
   if (chev) chev.textContent = open ? '▸' : '▾';
 }
 
+// Helper: resolve a plate-readable name for a device
+// Priority: plate_no field → match OH lorry number in device_name → device_name → imei
+function resolveVehicleName(d, imei) {
+  // 1. plate_no from API (best)
+  if (d.plate_no && d.plate_no.trim()) return d.plate_no.trim();
+  // 2. device_name that looks like a plate (contains letters + digits, e.g. "GBA9469L")
+  const rawName = (d.device_name || d.name || '').trim();
+  if (rawName && /[A-Za-z]/.test(rawName)) return rawName;
+  // 3. Cross-match OH_DATA lorry number against device_name digits
+  //    e.g. OH lorry "9469", device_name "9469" or "GBA9469L"
+  if (rawName && OH_DATA && OH_DATA.vehicles) {
+    const match = OH_DATA.vehicles.find(v => {
+      const n = String(v.lorry || '').replace(/\D/g, '');
+      return n && rawName.includes(n);
+    });
+    if (match) return `Lorry ${match.lorry}`;
+  }
+  // 4. If device_name is purely numeric, label it as "Device XXXX"
+  if (rawName) return `Device ${rawName}`;
+  return imei;
+}
+
+// Get today's start timestamp in SGT (UTC+8) formatted as "YYYY-MM-DD HH:MM:SS"
+function todayStartSGT() {
+  const now = new Date();
+  // SGT is UTC+8
+  const sgtOffset = 8 * 60 * 60 * 1000;
+  const sgtNow = new Date(now.getTime() + sgtOffset);
+  const y = sgtNow.getUTCFullYear();
+  const m = String(sgtNow.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(sgtNow.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day} 00:00:00`;
+}
+
 async function loadFleet() {
   const sync = document.getElementById('fleet-sync');
   const kpis = document.getElementById('fleet-kpis');
@@ -4194,29 +4168,48 @@ async function loadFleet() {
   veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">Connecting to TrackSolid Pro…</div>';
 
   try {
-    // Get all devices with live location in one call
-    const locData = await fleetCall('jimi.user.device.location.list', { target: 'gold888', map_type: 'GOOGLE' });
-    if (locData.code !== 0) throw new Error(locData.message || locData.msg || 'Failed to get devices');
-
-    const devices = locData.result || [];
+    // 1. Get device list
+    const devData = await fleetCall('jimi.user.device.location.list', { page_index: 1, page_size: 50 });
+    const devices = (devData.data && (devData.data.list || devData.data)) || [];
     if (!devices.length) {
       veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">No vehicles found in your account.</div>';
       return;
     }
 
-    // Location data is already in devices array
+    // 2. Get real-time location for all devices (location already in device list for jimi.user.device.location.list)
     const locs = {};
-    devices.forEach(l => { locs[l.imei] = l; });
+    devices.forEach(d => { locs[d.imei || d.device_id] = d; });
 
-    // Build KPIs
+    // 3. Fetch today's mileage per device (real-time, from midnight SGT)
+    const todayStart = todayStartSGT();
+    const todayEnd = fleetTimestamp(); // current UTC time as YYYY-MM-DD HH:MM:SS
+    const mileages = {};
+    // Fetch mileage for all IMEIs (can batch if API supports, else fetch one by one)
+    await Promise.all(devices.map(async d => {
+      const imei = d.imei || d.device_id;
+      try {
+        const mData = await fleetCall('jimi.device.track.mileage', {
+          imei,
+          begin_time: todayStart,
+          end_time: todayEnd,
+        });
+        const km = mData.data ? parseFloat(mData.data.mileage || mData.data.total_mileage || mData.data || 0) : 0;
+        mileages[imei] = km;
+      } catch(e) {
+        mileages[imei] = null; // failed silently
+      }
+    }));
+
+    // 4. Build KPIs
     let moving = 0, atBase = 0, offline = 0;
     devices.forEach(d => {
       const loc = locs[d.imei || d.device_id];
       if (!loc) { offline++; return; }
       const lat = parseFloat(loc.lat || loc.latitude || 0);
       const lng = parseFloat(loc.lng || loc.longitude || 0);
+      if (!lat && !lng) { offline++; return; }
       if (isAtBase(lat, lng)) atBase++;
-      else if (loc.speed > 0 || loc.status === 'moving') moving++;
+      else if (parseFloat(loc.speed || 0) > 2) moving++;
     });
 
     kpis.innerHTML = `
@@ -4226,21 +4219,25 @@ async function loadFleet() {
       <div class="quot-kpi"><div class="kpi-label">Offline</div><div class="kpi-val" style="color:var(--text3)">${offline}</div></div>
     `;
 
-    // Build vehicle cards
+    // 5. Build vehicle cards
     veh.innerHTML = devices.map(d => {
       const imei = d.imei || d.device_id;
-      const name = d.device_name || d.plate_no || d.name || imei;
+      const name = resolveVehicleName(d, imei);
       const loc  = locs[imei];
       const lat  = loc ? parseFloat(loc.lat || loc.latitude || 0) : 0;
       const lng  = loc ? parseFloat(loc.lng || loc.longitude || 0) : 0;
       const speed = loc ? (parseFloat(loc.speed || 0)).toFixed(0) : '—';
-      const atB  = loc && isAtBase(lat, lng);
-      const statusLabel = !loc ? 'Offline' : atB ? 'At Base' : parseFloat(loc.speed||0) > 2 ? 'Moving' : 'Idle';
-      const statusClass = !loc ? 'status-offline' : atB ? 'status-base' : parseFloat(loc.speed||0) > 2 ? 'status-moving' : 'status-idle';
+      const atB  = lat && lng && isAtBase(lat, lng);
+      const statusLabel = (!lat && !lng) ? 'Offline' : atB ? 'At Base' : parseFloat(loc.speed||0) > 2 ? 'Moving' : 'Idle';
+      const statusClass = (!lat && !lng) ? 'status-offline' : atB ? 'status-base' : parseFloat(loc.speed||0) > 2 ? 'status-moving' : 'status-idle';
       const lastUpdate = loc ? (loc.gps_time || loc.locate_time || loc.last_time || '—') : '—';
       const driver = d.driver_name || d.driver || '—';
-      const dist = loc ? (parseFloat(loc.mileage || loc.total_mileage || 0)).toFixed(0) + ' km' : '—';
-      const mapUrl = loc && lat ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+      // Today's mileage (real-time from midnight SGT)
+      const todayKm = mileages[imei];
+      const dist = todayKm !== null && todayKm !== undefined
+        ? (todayKm > 0 ? todayKm.toFixed(1) + ' km today' : '0 km today')
+        : '—';
+      const mapUrl = lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : null;
 
       return `<div class="vehicle-card">
         <div class="vehicle-header" onclick="toggleVehicle('${imei}')">
@@ -4254,7 +4251,7 @@ async function loadFleet() {
           <div class="vehicle-meta">
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">Driver</div><div class="vehicle-meta-val">${driver}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">Speed</div><div class="vehicle-meta-val">${speed} km/h</div></div>
-            <div class="vehicle-meta-item"><div class="vehicle-meta-label">Mileage</div><div class="vehicle-meta-val">${dist}</div></div>
+            <div class="vehicle-meta-item"><div class="vehicle-meta-label">Today's Mileage</div><div class="vehicle-meta-val">${dist}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">Last Update</div><div class="vehicle-meta-val" style="font-size:12px">${lastUpdate}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">IMEI</div><div class="vehicle-meta-val" style="font-size:11px">${imei}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">At Base (47 TVL)</div><div class="vehicle-meta-val">${atB ? '✅ Yes' : '❌ No'}</div></div>
@@ -4267,7 +4264,7 @@ async function loadFleet() {
     }).join('');
 
     document.getElementById('fleet-badge').textContent = moving || '';
-    sync.textContent = "Synced " + new Date().toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
+    sync.textContent = 'Synced ' + new Date().toLocaleTimeString('en-SG', {hour:'2-digit', minute:'2-digit'});
 
   } catch(e) {
     sync.textContent = 'Error';
@@ -4275,188 +4272,6 @@ async function loadFleet() {
   }
 }
 
-
-// ══════════════════════════════════════════
-// FLEET — ATTENDANCE & MILEAGE
-// ══════════════════════════════════════════
-
-const LORRIES = ['9469','3759','5718','72','5675','5377','5687','4914'];
-const BASE_GEOFENCE_M = 700;
-
-// Calculate distance between two coords in metres
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const dLat = (lat2-lat1) * Math.PI/180;
-  const dLng = (lng2-lng1) * Math.PI/180;
-  const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
-    Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-    Math.sin(dLng/2)*Math.sin(dLng/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-// Load daily mileage for all vehicles
-async function loadDailyMileage(imeiList) {
-  const today = new Date();
-  const d = today.toISOString().slice(0,10);
-  const begin_time = d + ' 00:00:00';
-  const end_time   = d + ' 23:59:59';
-  const results = {};
-  if (!imeiList || !imeiList.length) return results;
-  try {
-    const data = await fleetCall('jimi.device.track.mileage', {
-      imeis: imeiList.join(','), begin_time, end_time
-    });
-    if (data.code === 0 && data.data) {
-      data.data.forEach(d => { results[d.imei] = parseFloat(d.totalMileage || 0) / 1000; });
-    }
-  } catch(e) { console.warn('Mileage error:', e); }
-  return results;
-}
-
-// Load trip history for clock in/out detection
-async function loadTripHistory(imeiList) {
-  const today = new Date();
-  const d = today.toISOString().slice(0,10);
-  const begin_time = d + ' 00:00:00';
-  const end_time   = d + ' 23:59:59';
-  const attendance = {};
-  if (!imeiList || !imeiList.length) return attendance;
-
-  for (const imei of imeiList) {
-    try {
-      const data = await fleetCall('jimi.device.track.list', {
-        imei,
-        begin_time,
-        end_time,
-      });
-
-      const points = data.result || (data.data && data.data.list) || [];
-      if (!points.length) continue;
-
-      // Clock IN: first departure from base after 7:30AM
-      let clockIn = null;
-      for (const p of points) {
-        const lat = parseFloat(p.lat || p.latitude || 0);
-        const lng = parseFloat(p.lng || p.longitude || 0);
-        const dist = haversine(lat, lng, BASE_LAT, BASE_LNG);
-        if (dist > BASE_GEOFENCE_M && !clockIn) {
-          clockIn = p.gps_time || p.locate_time;
-          break;
-        }
-      }
-
-      // Clock OUT: LAST arrival at base after 5PM
-      let clockOut = null;
-      const afternoonPoints = points.filter(p => {
-        const t = p.gps_time || p.locate_time || '';
-        const hour = parseInt(t.slice(8,10) || t.slice(11,13) || '0');
-        return hour >= 17; // After 5PM
-      });
-
-      // Find last point within base radius after 5PM
-      for (let i = afternoonPoints.length - 1; i >= 0; i--) {
-        const p = afternoonPoints[i];
-        const lat = parseFloat(p.lat || p.latitude || 0);
-        const lng = parseFloat(p.lng || p.longitude || 0);
-        const dist = haversine(lat, lng, BASE_LAT, BASE_LNG);
-        if (dist <= BASE_GEOFENCE_M) {
-          clockOut = p.gps_time || p.locate_time;
-          break;
-        }
-      }
-
-      if (clockIn || clockOut) {
-        attendance[imei] = { clockIn, clockOut };
-      }
-    } catch(e) { console.warn('Trip history error for', imei, e); }
-  }
-  return attendance;
-}
-
-// Format time from TrackSolid timestamp
-function formatFleetTime(ts) {
-  if (!ts) return '—';
-  // ts format: YYYYMMDDHHmmss or YYYY-MM-DD HH:mm:ss
-  try {
-    let h, m;
-    if (ts.includes('-') || ts.includes(':')) {
-      const d = new Date(ts);
-      h = d.getHours(); m = d.getMinutes();
-    } else {
-      h = parseInt(ts.slice(8,10)); m = parseInt(ts.slice(10,12));
-    }
-    return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;
-  } catch(e) { return ts; }
-}
-
-// Render attendance table in fleet tab
-function renderAttendance(attendance, mileage) {
-  const wrap = document.getElementById('fleet-attendance');
-  if (!wrap) return;
-
-  const rows = LORRIES.map(imei => {
-    const a = attendance[imei] || {};
-    const km = mileage[imei] || 0;
-    const hours = a.clockIn && a.clockOut ? (() => {
-      try {
-        const inT = new Date(a.clockIn.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-        const outT = new Date(a.clockOut.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-        const diff = (outT - inT) / 3600000;
-        return diff > 0 ? diff.toFixed(1) + 'h' : '—';
-      } catch(e) { return '—'; }
-    })() : '—';
-
-    const ot = hours !== '—' && parseFloat(hours) > 10 ? ' ⚠' : '';
-    const kmColor = km > 200 ? '#e07070' : km > 100 ? '#e0a050' : 'var(--text1)';
-
-    return '<tr>' +
-      '<td><strong>SG ' + imei + 'U</strong></td>' +
-      '<td>' + (a.clockIn ? formatFleetTime(a.clockIn) : '<span style="color:var(--text3)">—</span>') + '</td>' +
-      '<td>' + (a.clockOut ? formatFleetTime(a.clockOut) : '<span style="color:var(--text3)">No return yet</span>') + '</td>' +
-      '<td>' + hours + ot + '</td>' +
-      '<td style="color:' + kmColor + '">' + (km > 0 ? km + ' km' : '—') + '</td>' +
-    '</tr>';
-  }).join('');
-
-  wrap.innerHTML =
-    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-    '<thead><tr style="background:var(--card-dark,#1a1a1a)">' +
-    '<th style="padding:8px;text-align:left;color:var(--gold)">Lorry</th>' +
-    '<th style="padding:8px;text-align:center;color:var(--gold)">Clock In</th>' +
-    '<th style="padding:8px;text-align:center;color:var(--gold)">Clock Out</th>' +
-    '<th style="padding:8px;text-align:center;color:var(--gold)">Hours</th>' +
-    '<th style="padding:8px;text-align:center;color:var(--gold)">Today km</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table>';
-}
-
-// Enhanced loadFleet that also loads attendance + mileage
-async function loadFleetEnhanced() {
-  const sync = document.getElementById('fleet-sync');
-  if (sync) sync.textContent = 'Loading attendance & mileage…';
-
-  // Get live device list to get real IMEIs
-  let imeiList = [];
-  try {
-    const locData = await fleetCall('jimi.user.device.location.list', { target: 'gold888' });
-    if (locData.code === 0 && locData.result) {
-      imeiList = locData.result.map(d => d.imei).filter(Boolean);
-    }
-  } catch(e) { console.warn('Could not fetch IMEIs:', e); }
-
-  const [attendance, mileage] = await Promise.allSettled([
-    loadTripHistory(imeiList),
-    loadDailyMileage(imeiList)
-  ]);
-
-  renderAttendance(
-    attendance.status === 'fulfilled' ? attendance.value : {},
-    mileage.status === 'fulfilled' ? mileage.value : {}
-  );
-
-  if (sync) sync.textContent = 'Updated ' + new Date().toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
-}
-
-switchTab('works');
 </script>
 </body>
 </html>
