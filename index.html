@@ -4087,6 +4087,7 @@ async function fleetCall(method, extraParams) {
     access_token: fleetToken,
     format: 'json',
     v: '0.9',
+    sign_method: 'md5',
     ...(extraParams || {}),
   };
   params.sign = fleetSign(params);
