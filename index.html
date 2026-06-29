@@ -3168,7 +3168,7 @@ function renderWorkersFromSheet() {
 
   // Update sync time in worker tab
   const el = document.getElementById('worker-sheet-sync');
-  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})}`;
+  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
 }
 
 // ── Overhead Sheet Live Load ──
@@ -3277,7 +3277,7 @@ function renderOverheadsFromSheet() {
   renderOverheads();
 
   const el = document.getElementById('overhead-sheet-sync');
-  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})}`;
+  if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
 }
 
 async function loadSheetData(forceRefresh) {
@@ -3340,7 +3340,7 @@ function parseMoney(s) {
 function renderWorksFromCache() {
   const { current, completed, clients, fetchedAt } = sheetCache;
   document.getElementById('works-last-updated').textContent =
-    `Last synced: ${fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})} · ${fetchedAt.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'})}`;
+    `Last synced: ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})} · ${fetchedAt.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'})}`;
 
   // ── Current Projects ──
   // headers: Project List, Client, Project Value, Start Date, End Date, Amount Received, Amount Remaining, Progress Payment
@@ -3877,7 +3877,7 @@ async function loadDeployments(forceRefresh) {
       `https://docs.google.com/spreadsheets/d/${DEPLOY_SHEET_ID}/edit`;
 
     document.getElementById('deploy-sync').textContent =
-      `Synced ${deployCache.fetchedAt.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'})}`;
+      `Synced ${deployCache.fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
 
     renderDeployments();
   } catch(e) {
@@ -4204,7 +4204,7 @@ async function loadFleet() {
     }).join('');
 
     document.getElementById('fleet-badge').textContent = moving || '';
-    sync.textContent = 'Synced ' + new Date().toLocaleTimeString('en-SG', {hour:'2-digit', minute:'2-digit'});
+    sync.textContent = "Synced " + new Date().toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
 
   } catch(e) {
     sync.textContent = 'Error';
@@ -4212,6 +4212,7 @@ async function loadFleet() {
   }
 }
 
+switchTab('works');
 </script>
 </body>
 </html>
