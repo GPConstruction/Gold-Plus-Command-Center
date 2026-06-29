@@ -1220,6 +1220,8 @@ const WORKERS = [
   { ref:45, name:'Hii Nai Kang', nationality:'Singaporean', dob:'02/12/1996', fin:'S9643103A', wp:'-', expiry:'-', skills:['Driver'] },
   { ref:46, name:'Cheng Siak Khoon', nationality:'Singaporean', dob:'12/06/1952', fin:'S0743639D', wp:'-', expiry:'-', skills:[] },
 ];
+// Keep a static copy so photo URLs survive sheet reloads
+window._WORKERS_STATIC = WORKERS.slice();
 
 // ── Projects (localStorage) ──
 function loadProjects() {
@@ -3163,9 +3165,16 @@ function renderWorkersFromSheet() {
     });
   }
 
+  // Merge photo URLs from hardcoded data (sheet has no photo column)
+  const photoMap = {};
+  (window._WORKERS_STATIC || []).forEach(w => { if (w.photo) photoMap[w.name] = w.photo; });
+
   // Update the live WORKERS array used by WP expiry alerts
   WORKERS.length = 0;
-  workers.forEach(w => WORKERS.push(w));
+  workers.forEach(w => {
+    if (photoMap[w.name]) w.photo = photoMap[w.name];
+    WORKERS.push(w);
+  });
   updateBadges();
 
   // Render using existing renderWorkers logic but inject sheet-synced data
@@ -4180,12 +4189,11 @@ async function loadFleet() {
     const locs = {};
     devices.forEach(d => { locs[d.imei || d.device_id] = d; });
 
-    // 3. Fetch today's mileage per device (real-time, from midnight SGT)
+    // 3. Fetch today's mileage per device — sequential with delay to avoid rate limiting
     const todayStart = todayStartSGT();
-    const todayEnd = fleetTimestamp(); // current UTC time as YYYY-MM-DD HH:MM:SS
+    const todayEnd = fleetTimestamp();
     const mileages = {};
-    // Fetch mileage for all IMEIs (can batch if API supports, else fetch one by one)
-    await Promise.all(devices.map(async d => {
+    for (const d of devices) {
       const imei = d.imei || d.device_id;
       try {
         const mData = await fleetCall('jimi.device.track.mileage', {
@@ -4196,9 +4204,10 @@ async function loadFleet() {
         const km = mData.data ? parseFloat(mData.data.mileage || mData.data.total_mileage || mData.data || 0) : 0;
         mileages[imei] = km;
       } catch(e) {
-        mileages[imei] = null; // failed silently
+        mileages[imei] = null; // failed silently, won't show mileage for this vehicle
       }
-    }));
+      await new Promise(r => setTimeout(r, 400)); // 400ms between calls
+    }
 
     // 4. Build KPIs
     let moving = 0, atBase = 0, offline = 0;
