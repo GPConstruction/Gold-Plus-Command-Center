@@ -2307,7 +2307,12 @@ function renderWorkers() {
       const ec = expiryClass(w.expiry);
       return `<tr>
         <td style="color:var(--text3)">${w.ref}</td>
-        <td><strong>${w.name}</strong></td>
+        <td>
+          ${workerPhoto(w.name)
+            ? `<img src="${workerPhoto(w.name)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;border:1px solid var(--border2)">`
+            : `<span style="display:inline-block;width:36px;height:36px;border-radius:50%;background:var(--bg3);text-align:center;line-height:36px;margin-right:8px;vertical-align:middle;font-size:16px">👷</span>`}
+          <strong>${w.name}</strong>
+        </td>
         <td><span class="tag tag-grey">${w.nationality}</span></td>
         <td style="color:var(--text2)">${w.dob}</td>
         <td style="font-family:monospace;font-size:12px">${w.fin}</td>
@@ -3985,6 +3990,16 @@ function fetchJSONP(url) {
 // ══════════════════════════════════════════
 // FLEET — TrackSolid Pro
 // ══════════════════════════════════════════
+
+// ── Worker Photos (Google Drive) ──
+const WORKER_PHOTOS = {
+  'shaikh mahasin': 'https://drive.google.com/thumbnail?id=1ZORdWfloagikcbALvmVk2aUvVYGme41n&sz=w200',
+  'hosen mohammad saddam': 'https://drive.google.com/thumbnail?id=1A6f7r1jeZbM2WaLq-PX9xvRkcretUdqS&sz=w200',
+};
+function workerPhoto(name) {
+  return WORKER_PHOTOS[name.toLowerCase().trim()] || null;
+}
+
 const FLEET_APP_KEY  = '8FB345B8693CCD006AC7146708F84E82';
 const FLEET_SECRET   = '3a50c171d4e64fbc8184835f982b165b';
 const FLEET_USER_ID  = 'gold888';
