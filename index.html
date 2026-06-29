@@ -988,7 +988,6 @@
   <div id="worker-table-wrap">
     <table id="worker-table">
       <thead><tr>
-        <th style="width:44px"></th>
         <th onclick="sortWorkers('ref')" data-col="ref">#</th>
         <th onclick="sortWorkers('name')" data-col="name">Name</th>
         <th onclick="sortWorkers('nationality')" data-col="nationality">Nationality</th>
@@ -1168,7 +1167,7 @@ const SKILLS = ['Supervisor','Driver','Welding / Metal','Tiling','Brick Walls','
 const WORKERS = [
   // Nationality: Bangladeshi
   { ref:1, name:'Hossain', nationality:'Bangladeshi', dob:'31/12/1975', fin:'G7157559X', wp:'0 61864164', expiry:'27/03/2028', skills:["Supervisor", "Plastering & Partition Works", "Electrical", "Civil", "Coretrade"] },
-  { ref:2, name:'Shaikh Mahasin', nationality:'Bangladeshi', dob:'10/05/1975', fin:'G7165953X', wp:'0 61916903', expiry:'16/06/2028', skills:["Supervisor", "Welding / Metal", "Coretrade"], photo:'https://lh3.googleusercontent.com/d/1ZORdWfloagikcbALvmVk2aUvVYGme41n' },
+  { ref:2, name:'Shaikh Mahasin', nationality:'Bangladeshi', dob:'10/05/1975', fin:'G7165953X', wp:'0 61916903', expiry:'16/06/2028', skills:["Supervisor", "Welding / Metal", "Coretrade"] },
   { ref:3, name:'Miraz', nationality:'Bangladeshi', dob:'16/06/1983', fin:'G8494781X', wp:'0 62929480', expiry:'11/05/2027', skills:["Limited", "Coretrade"] },
   { ref:4, name:'Ahmmed Sujon', nationality:'Bangladeshi', dob:'15/01/1989', fin:'G2245966Q', wp:'0 64029487', expiry:'23/04/2028', skills:["Supervisor", "Plumber", "Aircon", "Coretrade"] },
   { ref:5, name:'Hamidul', nationality:'Bangladeshi', dob:'12/02/1983', fin:'G8379484X', wp:'0 62927143', expiry:'19/02/2027', skills:["Welding / Metal", "Civil", "Coretrade"] },
@@ -1180,7 +1179,7 @@ const WORKERS = [
   { ref:11, name:'Hossain Mohammad Arif', nationality:'Bangladeshi', dob:'27/08/1997', fin:'M3021673X', wp:'0 65023687', expiry:'25/07/2027', skills:["Limited"] },
   { ref:12, name:'Miah Md Gaffar', nationality:'Bangladeshi', dob:'27/10/1993', fin:'M3057254P', wp:'0 65240041', expiry:'30/01/2028', skills:["Plastering & Partition Works"] },
   { ref:13, name:'Sumon Mohammad', nationality:'Bangladeshi', dob:'24/04/1988', fin:'G2194263X', wp:'0 63905720', expiry:'27/03/2028', skills:["Plumber", "Coretrade"] },
-  { ref:14, name:'Hosen Mohammad Saddam', nationality:'Bangladeshi', dob:'25/03/1992', fin:'G2270048R', wp:'0 64031244', expiry:'11/09/2026', skills:["Driver", "Plastering & Partition Works", "Coretrade"], photo:'https://lh3.googleusercontent.com/d/1A6f7r1jeZbM2WaLq-PX9xvRkcretUdqS' },
+  { ref:14, name:'Hosen Mohammad Saddam', nationality:'Bangladeshi', dob:'25/03/1992', fin:'G2270048R', wp:'0 64031244', expiry:'11/09/2026', skills:["Driver", "Plastering & Partition Works", "Coretrade"] },
   { ref:15, name:'Islam Mohammad Saiful', nationality:'Bangladeshi', dob:'03/05/1975', fin:'G7276461M', wp:'0 61944230', expiry:'30/07/2027', skills:["Driver", "Plastering & Partition Works", "Coretrade"] },
   { ref:16, name:'Mahmod Abdullah Al', nationality:'Bangladeshi', dob:'17/08/2000', fin:'M4589617R', wp:'0 6595849-', expiry:'23/04/2028', skills:["Limited"] },
   // Nationality: Indian
@@ -1220,8 +1219,6 @@ const WORKERS = [
   { ref:45, name:'Hii Nai Kang', nationality:'Singaporean', dob:'02/12/1996', fin:'S9643103A', wp:'-', expiry:'-', skills:['Driver'] },
   { ref:46, name:'Cheng Siak Khoon', nationality:'Singaporean', dob:'12/06/1952', fin:'S0743639D', wp:'-', expiry:'-', skills:[] },
 ];
-// Keep a static copy so photo URLs survive sheet reloads
-window._WORKERS_STATIC = WORKERS.slice();
 
 // ── Projects (localStorage) ──
 function loadProjects() {
@@ -2299,20 +2296,16 @@ function renderWorkers() {
 
   const b = document.getElementById('worker-body');
   if (!list.length) {
-    b.innerHTML = '<tr><td colspan="9" class="no-results">No workers match your filters.</td></tr>';
+    b.innerHTML = '<tr><td colspan="8" class="no-results">No workers match your filters.</td></tr>';
     return;
   }
 
   b.innerHTML = Object.entries(groups).map(([nat, workers]) => {
-    const header = `<tr class="nat-header"><td colspan="9">Nationality: ${nat} — ${workers.length} worker${workers.length!==1?'s':''}</td></tr>`;
+    const header = `<tr class="nat-header"><td colspan="8">Nationality: ${nat} — ${workers.length} worker${workers.length!==1?'s':''}</td></tr>`;
     const rows = workers.map(w => {
       const skillPills = SKILLS.map(s => `<span class="skill-pill${w.skills.includes(s)?' has':''}">${s}</span>`).join('');
       const ec = expiryClass(w.expiry);
-      const photoCell = w.photo
-        ? `<td style="padding:6px 8px"><img src="${w.photo}" alt="${w.name}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div style="display:none;width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);align-items:center;justify-content:center;font-size:14px">👤</div></td>`
-        : `<td style="padding:6px 8px"><div style="width:36px;height:36px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px">👤</div></td>`;
       return `<tr>
-        ${photoCell}
         <td style="color:var(--text3)">${w.ref}</td>
         <td><strong>${w.name}</strong></td>
         <td><span class="tag tag-grey">${w.nationality}</span></td>
@@ -3165,16 +3158,9 @@ function renderWorkersFromSheet() {
     });
   }
 
-  // Merge photo URLs from hardcoded data (sheet has no photo column)
-  const photoMap = {};
-  (window._WORKERS_STATIC || []).forEach(w => { if (w.photo) photoMap[w.name] = w.photo; });
-
   // Update the live WORKERS array used by WP expiry alerts
   WORKERS.length = 0;
-  workers.forEach(w => {
-    if (photoMap[w.name]) w.photo = photoMap[w.name];
-    WORKERS.push(w);
-  });
+  workers.forEach(w => WORKERS.push(w));
   updateBadges();
 
   // Render using existing renderWorkers logic but inject sheet-synced data
@@ -4135,40 +4121,6 @@ function toggleVehicle(id) {
   if (chev) chev.textContent = open ? '▸' : '▾';
 }
 
-// Helper: resolve a plate-readable name for a device
-// Priority: plate_no field → match OH lorry number in device_name → device_name → imei
-function resolveVehicleName(d, imei) {
-  // 1. plate_no from API (best)
-  if (d.plate_no && d.plate_no.trim()) return d.plate_no.trim();
-  // 2. device_name that looks like a plate (contains letters + digits, e.g. "GBA9469L")
-  const rawName = (d.device_name || d.name || '').trim();
-  if (rawName && /[A-Za-z]/.test(rawName)) return rawName;
-  // 3. Cross-match OH_DATA lorry number against device_name digits
-  //    e.g. OH lorry "9469", device_name "9469" or "GBA9469L"
-  if (rawName && OH_DATA && OH_DATA.vehicles) {
-    const match = OH_DATA.vehicles.find(v => {
-      const n = String(v.lorry || '').replace(/\D/g, '');
-      return n && rawName.includes(n);
-    });
-    if (match) return `Lorry ${match.lorry}`;
-  }
-  // 4. If device_name is purely numeric, label it as "Device XXXX"
-  if (rawName) return `Device ${rawName}`;
-  return imei;
-}
-
-// Get today's start timestamp in SGT (UTC+8) formatted as "YYYY-MM-DD HH:MM:SS"
-function todayStartSGT() {
-  const now = new Date();
-  // SGT is UTC+8
-  const sgtOffset = 8 * 60 * 60 * 1000;
-  const sgtNow = new Date(now.getTime() + sgtOffset);
-  const y = sgtNow.getUTCFullYear();
-  const m = String(sgtNow.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(sgtNow.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day} 00:00:00`;
-}
-
 async function loadFleet() {
   const sync = document.getElementById('fleet-sync');
   const kpis = document.getElementById('fleet-kpis');
@@ -4177,48 +4129,31 @@ async function loadFleet() {
   veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">Connecting to TrackSolid Pro…</div>';
 
   try {
-    // 1. Get device list
-    const devData = await fleetCall('jimi.user.device.location.list', { page_index: 1, page_size: 50 });
-    const devices = (devData.data && (devData.data.list || devData.data)) || [];
+    // Get device list
+    const devData = await fleetCall('jimi.device.list', { page_index: 1, page_size: 50 });
+    if (!devData.ok) throw new Error(devData.msg || 'Failed to get devices');
+
+    const devices = devData.data.list || devData.data || [];
     if (!devices.length) {
       veh.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">No vehicles found in your account.</div>';
       return;
     }
 
-    // 2. Get real-time location for all devices (location already in device list for jimi.user.device.location.list)
+    // Get real-time location for all devices
+    const imeis = devices.map(d => d.imei || d.device_id).join(',');
+    const locData = await fleetCall('jimi.track.device.detail', { imeis, language: '0' });
     const locs = {};
-    devices.forEach(d => { locs[d.imei || d.device_id] = d; });
+    ((locData.data && locData.data.list) || locData.data || []).forEach(l => { locs[l.imei || l.device_id] = l; });
 
-    // 3. Fetch today's mileage per device — sequential with delay to avoid rate limiting
-    const todayStart = todayStartSGT();
-    const todayEnd = fleetTimestamp();
-    const mileages = {};
-    for (const d of devices) {
-      const imei = d.imei || d.device_id;
-      try {
-        const mData = await fleetCall('jimi.device.track.mileage', {
-          imei,
-          begin_time: todayStart,
-          end_time: todayEnd,
-        });
-        const km = mData.data ? parseFloat(mData.data.mileage || mData.data.total_mileage || mData.data || 0) : 0;
-        mileages[imei] = km;
-      } catch(e) {
-        mileages[imei] = null; // failed silently, won't show mileage for this vehicle
-      }
-      await new Promise(r => setTimeout(r, 400)); // 400ms between calls
-    }
-
-    // 4. Build KPIs
+    // Build KPIs
     let moving = 0, atBase = 0, offline = 0;
     devices.forEach(d => {
       const loc = locs[d.imei || d.device_id];
       if (!loc) { offline++; return; }
       const lat = parseFloat(loc.lat || loc.latitude || 0);
       const lng = parseFloat(loc.lng || loc.longitude || 0);
-      if (!lat && !lng) { offline++; return; }
       if (isAtBase(lat, lng)) atBase++;
-      else if (parseFloat(loc.speed || 0) > 2) moving++;
+      else if (loc.speed > 0 || loc.status === 'moving') moving++;
     });
 
     kpis.innerHTML = `
@@ -4228,25 +4163,21 @@ async function loadFleet() {
       <div class="quot-kpi"><div class="kpi-label">Offline</div><div class="kpi-val" style="color:var(--text3)">${offline}</div></div>
     `;
 
-    // 5. Build vehicle cards
+    // Build vehicle cards
     veh.innerHTML = devices.map(d => {
       const imei = d.imei || d.device_id;
-      const name = resolveVehicleName(d, imei);
+      const name = d.device_name || d.plate_no || d.name || imei;
       const loc  = locs[imei];
       const lat  = loc ? parseFloat(loc.lat || loc.latitude || 0) : 0;
       const lng  = loc ? parseFloat(loc.lng || loc.longitude || 0) : 0;
       const speed = loc ? (parseFloat(loc.speed || 0)).toFixed(0) : '—';
-      const atB  = lat && lng && isAtBase(lat, lng);
-      const statusLabel = (!lat && !lng) ? 'Offline' : atB ? 'At Base' : parseFloat(loc.speed||0) > 2 ? 'Moving' : 'Idle';
-      const statusClass = (!lat && !lng) ? 'status-offline' : atB ? 'status-base' : parseFloat(loc.speed||0) > 2 ? 'status-moving' : 'status-idle';
+      const atB  = loc && isAtBase(lat, lng);
+      const statusLabel = !loc ? 'Offline' : atB ? 'At Base' : parseFloat(loc.speed||0) > 2 ? 'Moving' : 'Idle';
+      const statusClass = !loc ? 'status-offline' : atB ? 'status-base' : parseFloat(loc.speed||0) > 2 ? 'status-moving' : 'status-idle';
       const lastUpdate = loc ? (loc.gps_time || loc.locate_time || loc.last_time || '—') : '—';
       const driver = d.driver_name || d.driver || '—';
-      // Today's mileage (real-time from midnight SGT)
-      const todayKm = mileages[imei];
-      const dist = todayKm !== null && todayKm !== undefined
-        ? (todayKm > 0 ? todayKm.toFixed(1) + ' km today' : '0 km today')
-        : '—';
-      const mapUrl = lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+      const dist = loc ? (parseFloat(loc.mileage || loc.total_mileage || 0)).toFixed(0) + ' km' : '—';
+      const mapUrl = loc && lat ? `https://www.google.com/maps?q=${lat},${lng}` : null;
 
       return `<div class="vehicle-card">
         <div class="vehicle-header" onclick="toggleVehicle('${imei}')">
@@ -4260,7 +4191,7 @@ async function loadFleet() {
           <div class="vehicle-meta">
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">Driver</div><div class="vehicle-meta-val">${driver}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">Speed</div><div class="vehicle-meta-val">${speed} km/h</div></div>
-            <div class="vehicle-meta-item"><div class="vehicle-meta-label">Today's Mileage</div><div class="vehicle-meta-val">${dist}</div></div>
+            <div class="vehicle-meta-item"><div class="vehicle-meta-label">Mileage</div><div class="vehicle-meta-val">${dist}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">Last Update</div><div class="vehicle-meta-val" style="font-size:12px">${lastUpdate}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">IMEI</div><div class="vehicle-meta-val" style="font-size:11px">${imei}</div></div>
             <div class="vehicle-meta-item"><div class="vehicle-meta-label">At Base (47 TVL)</div><div class="vehicle-meta-val">${atB ? '✅ Yes' : '❌ No'}</div></div>
