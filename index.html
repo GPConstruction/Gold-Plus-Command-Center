@@ -585,21 +585,20 @@
 <div class="panel" id="panel-quotations">
   <div class="section-header">
     <h2>Quotation Tracker</h2>
-    <p>Track every quote from submission to award. Review every Friday — follow up on anything pending more than 7 days. Data saved in this browser. Google Sheets sync coming.</p>
+    <p>Live from your Google Sheets Project List (Quotation tab). Review every Friday — follow up on anything pending. <span id="quot-sheet-sync">Loading…</span></p>
   </div>
 
   <!-- KPI strip -->
   <div class="quot-kpi-grid" id="quot-kpis"></div>
 
-  <!-- Filters + Add button -->
+  <!-- Filters + Refresh -->
   <div class="filter-row" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button class="filter-btn active" onclick="setQuotFilter('all',this)">All</button>
-    <button class="filter-btn" onclick="setQuotFilter('Pending',this)">Pending</button>
-    <button class="filter-btn" onclick="setQuotFilter('Awarded',this)">Awarded</button>
-    <button class="filter-btn" onclick="setQuotFilter('Lost',this)">Lost</button>
-    <button class="filter-btn" onclick="setQuotFilter('No Response',this)">No Response</button>
+    <button class="filter-btn" onclick="setQuotFilter('pending',this)">Pending</button>
+    <button class="filter-btn" onclick="setQuotFilter('confirmed',this)">Confirmed</button>
     <div style="flex:1"></div>
-    <button class="btn btn-gold" onclick="openQuotForm()">+ Add Quotation</button>
+    <button class="btn" onclick="loadQuotations(true)">↻ Refresh from Google Sheets</button>
+    <a href="https://docs.google.com/spreadsheets/d/1jpaz_LB3ffmgX7lNojj4aV-GEOXC3HJAnedB0Oj88-s/edit" target="_blank" class="btn btn-gold" style="font-size:12px">Open Sheet ↗</a>
   </div>
 
   <!-- Table -->
@@ -608,93 +607,18 @@
       <table id="quot-table">
         <thead><tr>
           <th>#</th>
-          <th>Client</th>
           <th>Project / Description</th>
-          <th>Type</th>
-          <th>Quoted (SGD)</th>
-          <th>Submitted</th>
-          <th>Follow-up</th>
-          <th>Status</th>
-          <th>Margin %</th>
-          <th>Remarks</th>
-          <th></th>
+          <th>Client</th>
+          <th>Project Value (SGD)</th>
+          <th>Quotation Date</th>
+          <th>Confirmation</th>
         </tr></thead>
         <tbody id="quot-body"></tbody>
       </table>
     </div>
   </div>
-  <div class="notice" id="quot-notice">No quotations yet. Click <strong>+ Add Quotation</strong> to get started.</div>
-</div>
-
-<!-- Quotation form modal -->
-<div id="quot-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;overflow-y:auto">
-  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);max-width:540px;margin:40px auto;padding:28px;position:relative">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <h3 id="quot-form-title" style="font-size:15px;color:var(--gold);font-weight:700">Add Quotation</h3>
-      <button onclick="closeQuotForm()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div style="grid-column:1/-1">
-        <label class="quot-label">Client Name *</label>
-        <input id="qf-client" class="quot-input" type="text" placeholder="e.g. HDB, ABC Pte Ltd">
-      </div>
-      <div style="grid-column:1/-1">
-        <label class="quot-label">Project / Description *</label>
-        <input id="qf-desc" class="quot-input" type="text" placeholder="e.g. A&A works at Blk 123 Tampines">
-      </div>
-      <div>
-        <label class="quot-label">Work Type</label>
-        <select id="qf-type" class="quot-input">
-          <option>General Works</option>
-          <option>A&A</option>
-          <option>Civil</option>
-          <option>M&E</option>
-          <option>Finishing</option>
-          <option>Structural</option>
-          <option>Demolition</option>
-          <option>Tiling</option>
-          <option>Painting</option>
-          <option>Waterproofing</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div>
-        <label class="quot-label">Status</label>
-        <select id="qf-status" class="quot-input">
-          <option>Pending</option>
-          <option>Awarded</option>
-          <option>Lost</option>
-          <option>No Response</option>
-          <option>Withdrawn</option>
-        </select>
-      </div>
-      <div>
-        <label class="quot-label">Quoted Amount (SGD) *</label>
-        <input id="qf-amount" class="quot-input" type="number" placeholder="0" min="0">
-      </div>
-      <div>
-        <label class="quot-label">Estimated Margin %</label>
-        <input id="qf-margin" class="quot-input" type="number" placeholder="e.g. 12" min="0" max="100">
-      </div>
-      <div>
-        <label class="quot-label">Date Submitted *</label>
-        <input id="qf-submitted" class="quot-input" type="date">
-      </div>
-      <div>
-        <label class="quot-label">Follow-up Date</label>
-        <input id="qf-followup" class="quot-input" type="date">
-      </div>
-      <div style="grid-column:1/-1">
-        <label class="quot-label">Remarks</label>
-        <input id="qf-remarks" class="quot-input" type="text" placeholder="e.g. Waiting for client reply, price negotiation ongoing">
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
-      <button class="btn" onclick="closeQuotForm()">Cancel</button>
-      <button class="btn btn-gold" onclick="saveQuotation()">Save</button>
-    </div>
-    <input type="hidden" id="qf-edit-id" value="">
-  </div>
+  <div class="notice" id="quot-notice" style="display:none">No quotations found in the sheet yet.</div>
+  <div class="notice" style="font-size:11px;color:var(--text3);margin-top:8px">Read-only — add or edit quotations directly in the Google Sheet's "Quotation" tab. Columns expected: Quotation List, Client, Project Value, Quotation Date, Confirmation.</div>
 </div>
 
 <div class="panel active" id="panel-works">
@@ -1014,11 +938,12 @@
     <span id="overhead-sheet-sync" style="font-size:11px;color:var(--text3)">Loading…</span>
     <a href="https://docs.google.com/spreadsheets/d/1WW7iZ2HfiNsNqR9Ikuk1LgRfQD32UD_Vi7pdL5Hehf0/edit" target="_blank" class="btn" style="font-size:11px">Open Sheet ↗</a>
   </div>
-  <!-- Levy fix banner -->
-  <div id="levy-fix-banner" style="background:#1a1505;border:1px solid #3a2e10;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+  <!-- Levy fix banner (hidden until a live mismatch is detected) -->
+  <div id="levy-fix-banner" style="display:none;background:#1a1505;border:1px solid #3a2e10;border-radius:8px;padding:14px 16px;margin-bottom:16px;align-items:center;gap:16px;flex-wrap:wrap">
     <div style="flex:1;min-width:200px">
       <div style="font-size:12px;font-weight:700;color:#d4ae4a;margin-bottom:3px">⚠ Levy Correction Pending</div>
-      <div style="font-size:11px;color:var(--text3)">Hasan, Hossain, Murugan & Sujon have Coretrade — levy should be $500, not $900. Saving: <strong style="color:#6dcc95">$1,600/month · $19,200/year</strong></div>
+      <div id="levy-fix-title-text" style="font-size:11px;color:var(--text3)"></div>
+      <div id="levy-fix-saving-text" style="font-size:11px;color:var(--text3)"></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <button id="levy-fix-btn" class="btn btn-gold" onclick="applyLevyFix()" style="font-size:12px;white-space:nowrap">Apply Fix to Google Sheets</button>
@@ -1262,7 +1187,7 @@ function switchTab(tab) {
   const panel = document.getElementById('panel-' + tab);
   if (panel) panel.classList.add('active');
   if (tab==='works') loadSheetData(false);
-  if (tab==='quotations') renderQuotations();
+  if (tab==='quotations') loadQuotations();
   if (tab==='crews') renderCrews();
   if (tab==='schedule') renderSchedule();
   if (tab==='deployments') loadDeployments();
@@ -2720,49 +2645,68 @@ function renderOverheads() {
 }
 
 // ══════════════════════════════════════════
-// QUOTATION TRACKER
+// QUOTATION TRACKER (live from Google Sheets "Quotation" tab)
 // ══════════════════════════════════════════
-let quotations = JSON.parse(localStorage.getItem('gpc-quotations') || '[]');
-let quotEditId = null;
+let quotations = [];
 let quotFilter = 'all';
+let quotCache = null;
 
-function saveQuotations() { localStorage.setItem('gpc-quotations', JSON.stringify(quotations)); }
-
-function quotStatusClass(s) {
-  return { 'Pending':'qs-pending','Awarded':'qs-awarded','Lost':'qs-lost','No Response':'qs-noresponse','Withdrawn':'qs-withdrawn' }[s] || 'qs-pending';
+function quotConfirmClass(c) {
+  const v = (c || '').trim().toUpperCase();
+  if (v === 'Y' || v === 'YES' || v === 'CONFIRMED' || v === '✓') return 'qs-awarded';
+  if (v === 'X' || v === 'NO') return 'qs-pending';
+  return 'qs-pending';
 }
 
-function quotMarginClass(m) {
-  if (!m && m !== 0) return '';
-  if (m >= 12) return 'quot-margin-good';
-  if (m >= 6)  return 'quot-margin-low';
-  return 'quot-margin-bad';
+function quotConfirmLabel(c) {
+  const v = (c || '').trim().toUpperCase();
+  if (v === 'Y' || v === 'YES' || v === 'CONFIRMED' || v === '✓') return 'Confirmed';
+  if (v === '') return 'Pending';
+  return 'Pending';
 }
 
-function quotFollowupClass(dateStr) {
-  if (!dateStr) return '';
-  const days = (new Date(dateStr) - new Date()) / 86400000;
-  if (days < 0)  return 'quot-followup-due';
-  if (days <= 3) return 'quot-followup-soon';
-  return '';
+async function loadQuotations(forceRefresh) {
+  const syncEl = document.getElementById('quot-sheet-sync');
+  if (quotCache && !forceRefresh) { renderQuotations(); return; }
+  if (syncEl) syncEl.textContent = 'Fetching…';
+  try {
+    const res = await fetch(SHEET_CSV_BASE(SHEET_ID) + encodeURIComponent('Quotation'));
+    const csv = await res.text();
+    const rows = parseCSV(csv);
+    // Expected header: Quotation List, Client, Project Value, Quotation Date, Confirmation
+    quotations = rows.slice(1)
+      .filter(r => r[0] && r[0].trim() && r[0].trim() !== 'Quotation List')
+      .map((r, i) => ({
+        id: i,
+        desc: r[0] || '',
+        client: r[1] || '',
+        amount: parseMoney(r[2]),
+        amountRaw: r[2] || '',
+        quotDate: r[3] || '',
+        confirmation: r[4] || '',
+      }));
+    quotCache = { fetchedAt: new Date() };
+    if (syncEl) syncEl.textContent = `Last synced: ${quotCache.fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
+    renderQuotations();
+  } catch (e) {
+    if (syncEl) syncEl.textContent = '⚠ Could not load — check sheet is shared (Anyone with link can view)';
+    quotations = [];
+    renderQuotations();
+  }
 }
 
 function renderQuotations() {
-  const now = new Date();
-  const filtered = quotFilter === 'all' ? quotations : quotations.filter(q => q.status === quotFilter);
+  const filtered = quotFilter === 'all' ? quotations
+    : quotFilter === 'confirmed' ? quotations.filter(q => quotConfirmLabel(q.confirmation) === 'Confirmed')
+    : quotations.filter(q => quotConfirmLabel(q.confirmation) === 'Pending');
 
   // ── KPIs ──
   const total      = quotations.length;
-  const pending    = quotations.filter(q => q.status === 'Pending' || q.status === 'No Response').length;
-  const awarded    = quotations.filter(q => q.status === 'Awarded').length;
-  const totalVal   = quotations.reduce((a,q) => a + (Number(q.amount)||0), 0);
-  const awardedVal = quotations.filter(q=>q.status==='Awarded').reduce((a,q)=>a+(Number(q.amount)||0),0);
-  const winRate    = total > 0 ? Math.round((awarded / (total - pending)) * 100) || 0 : 0;
-  const followupDue = quotations.filter(q => {
-    if (q.status !== 'Pending' && q.status !== 'No Response') return false;
-    if (!q.followup) return false;
-    return (new Date(q.followup) - now) / 86400000 <= 3;
-  }).length;
+  const confirmed  = quotations.filter(q => quotConfirmLabel(q.confirmation) === 'Confirmed').length;
+  const pending    = total - confirmed;
+  const totalVal   = quotations.reduce((a,q) => a + (q.amount||0), 0);
+  const confirmedVal = quotations.filter(q=>quotConfirmLabel(q.confirmation)==='Confirmed').reduce((a,q)=>a+(q.amount||0),0);
+  const winRate    = total > 0 ? Math.round((confirmed / total) * 100) : 0;
 
   document.getElementById('quot-kpis').innerHTML = `
     <div class="quot-kpi hl">
@@ -2771,23 +2715,23 @@ function renderQuotations() {
       <div class="kpi-sub">${total} quotation${total!==1?'s':''} total</div>
     </div>
     <div class="quot-kpi">
-      <div class="kpi-label">Awarded Value</div>
-      <div class="kpi-val" style="color:#6dcc95">$${(awardedVal/1000).toFixed(0)}K</div>
-      <div class="kpi-sub">${awarded} project${awarded!==1?'s':''} won</div>
+      <div class="kpi-label">Confirmed Value</div>
+      <div class="kpi-val" style="color:#6dcc95">$${(confirmedVal/1000).toFixed(0)}K</div>
+      <div class="kpi-sub">${confirmed} confirmed</div>
     </div>
     <div class="quot-kpi">
       <div class="kpi-label">Win Rate</div>
       <div class="kpi-val">${winRate}%</div>
-      <div class="kpi-sub">Excl. pending</div>
+      <div class="kpi-sub">${confirmed} of ${total}</div>
     </div>
-    <div class="quot-kpi ${followupDue>0?'hl':''}">
-      <div class="kpi-label">Follow-up Due</div>
-      <div class="kpi-val" style="color:${followupDue>0?'#e07070':'var(--gold-light)'}">${followupDue}</div>
-      <div class="kpi-sub">${pending} pending response</div>
+    <div class="quot-kpi ${pending>0?'hl':''}">
+      <div class="kpi-label">Pending Confirmation</div>
+      <div class="kpi-val" style="color:${pending>0?'var(--gold-light)':'#6dcc95'}">${pending}</div>
+      <div class="kpi-sub">Awaiting client confirmation</div>
     </div>
   `;
 
-  // Update badge — show pending + overdue follow-ups
+  // Update badge — show pending count
   document.getElementById('quot-badge').textContent = pending > 0 ? pending : '';
 
   const notice = document.getElementById('quot-notice');
@@ -2799,31 +2743,16 @@ function renderQuotations() {
   notice.style.display = 'none';
 
   // ── Table ──
-  const sorted = [...filtered].sort((a,b) => new Date(b.submitted) - new Date(a.submitted));
-  document.getElementById('quot-body').innerHTML = sorted.map((q,i) => {
-    const daysPending = q.submitted ? Math.round((now - new Date(q.submitted)) / 86400000) : '—';
-    const followupCls = quotFollowupClass(q.followup);
-    const marginCls   = quotMarginClass(q.margin);
-    const amountFmt   = q.amount ? `$${Number(q.amount).toLocaleString()}` : '—';
-    const marginFmt   = q.margin !== '' && q.margin !== null && q.margin !== undefined ? `<span class="${marginCls}">${q.margin}%</span>` : '—';
-    const followupFmt = q.followup
-      ? `<span class="${followupCls}">${new Date(q.followup).toLocaleDateString('en-SG',{day:'2-digit',month:'short'})}</span>`
-      : '—';
+  document.getElementById('quot-body').innerHTML = filtered.map((q,i) => {
+    const amountFmt = q.amount ? `$${q.amount.toLocaleString()}` : (q.amountRaw || '—');
+    const confLabel = quotConfirmLabel(q.confirmation);
     return `<tr>
-      <td style="color:var(--text3);font-size:11px">${String(q.id).padStart(3,'0')}</td>
-      <td><strong>${q.client}</strong></td>
-      <td style="max-width:200px;font-size:12px">${q.desc}</td>
-      <td><span class="tag tag-grey">${q.type}</span></td>
+      <td style="color:var(--text3);font-size:11px">${String(i+1).padStart(3,'0')}</td>
+      <td style="max-width:240px;font-size:12px"><strong>${q.desc}</strong></td>
+      <td>${q.client}</td>
       <td style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">${amountFmt}</td>
-      <td style="font-size:12px;color:var(--text3)">${q.submitted ? new Date(q.submitted).toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
-      <td style="font-size:12px">${followupFmt}${followupCls==='quot-followup-due'?' <span style="font-size:10px;color:#e07070">overdue</span>':''}</td>
-      <td><span class="${quotStatusClass(q.status)}">${q.status}</span></td>
-      <td style="font-size:13px">${marginFmt}</td>
-      <td style="font-size:12px;color:var(--text3);max-width:160px">${q.remarks||'—'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn" style="padding:3px 10px;font-size:11px" onclick="editQuotation('${q.id}')">Edit</button>
-        <button class="btn" style="padding:3px 10px;font-size:11px;margin-left:4px;color:#e07070;border-color:#4a1010" onclick="deleteQuotation('${q.id}')">✕</button>
-      </td>
+      <td style="font-size:12px;color:var(--text3)">${q.quotDate || '—'}</td>
+      <td><span class="${quotConfirmClass(q.confirmation)}">${confLabel}</span></td>
     </tr>`;
   }).join('');
 }
@@ -2832,68 +2761,6 @@ function setQuotFilter(f, btn) {
   quotFilter = f;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderQuotations();
-}
-
-function openQuotForm(id) {
-  quotEditId = id || null;
-  const q = id ? quotations.find(x => x.id == id) : null;
-  document.getElementById('quot-form-title').textContent = q ? 'Edit Quotation' : 'Add Quotation';
-  document.getElementById('qf-client').value    = q?.client    || '';
-  document.getElementById('qf-desc').value      = q?.desc      || '';
-  document.getElementById('qf-type').value      = q?.type      || 'General Works';
-  document.getElementById('qf-status').value    = q?.status    || 'Pending';
-  document.getElementById('qf-amount').value    = q?.amount    || '';
-  document.getElementById('qf-margin').value    = q?.margin    || '';
-  document.getElementById('qf-submitted').value = q?.submitted || new Date().toISOString().split('T')[0];
-  document.getElementById('qf-followup').value  = q?.followup  || '';
-  document.getElementById('qf-remarks').value   = q?.remarks   || '';
-  document.getElementById('quot-modal').style.display = 'flex';
-  document.getElementById('quot-modal').style.alignItems = 'flex-start';
-}
-
-function closeQuotForm() {
-  document.getElementById('quot-modal').style.display = 'none';
-  quotEditId = null;
-}
-
-function saveQuotation() {
-  const client = document.getElementById('qf-client').value.trim();
-  const desc   = document.getElementById('qf-desc').value.trim();
-  const amount = document.getElementById('qf-amount').value;
-  const submitted = document.getElementById('qf-submitted').value;
-  if (!client || !desc || !submitted) { alert('Please fill in Client, Description and Date Submitted.'); return; }
-
-  const q = {
-    id:        quotEditId || Date.now(),
-    client,
-    desc,
-    type:      document.getElementById('qf-type').value,
-    status:    document.getElementById('qf-status').value,
-    amount:    amount ? Number(amount) : '',
-    margin:    document.getElementById('qf-margin').value !== '' ? Number(document.getElementById('qf-margin').value) : '',
-    submitted,
-    followup:  document.getElementById('qf-followup').value,
-    remarks:   document.getElementById('qf-remarks').value.trim(),
-  };
-
-  if (quotEditId) {
-    const idx = quotations.findIndex(x => x.id == quotEditId);
-    if (idx > -1) quotations[idx] = q;
-  } else {
-    quotations.unshift(q);
-  }
-  saveQuotations();
-  closeQuotForm();
-  renderQuotations();
-}
-
-function editQuotation(id) { openQuotForm(id); }
-
-function deleteQuotation(id) {
-  if (!confirm('Delete this quotation?')) return;
-  quotations = quotations.filter(q => q.id != id);
-  saveQuotations();
   renderQuotations();
 }
 
@@ -3062,43 +2929,80 @@ async function writeBatchToSheet(sheet, updates) {
   return results.every(Boolean);
 }
 
-// ── Apply levy corrections (Hasan, Hossain, Murugan, Sujon: $900 → $500) ──
+// ── Dynamic levy correction detection ──
+// Cross-references live Worker List (Coretrade skill flag) against live Wages sheet (levy amount).
+// Any worker with Coretrade still billed at the non-Coretrade rate ($900) is flagged automatically —
+// no hardcoded names or row numbers.
+const NON_CORETRADE_LEVY = 900;
+const CORETRADE_LEVY = 500;
+
+function normName(s) {
+  return (s || '').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function detectLevyMismatches() {
+  if (!Array.isArray(WORKERS) || WORKERS.length === 0) return [];
+  if (!OH_DATA.wages || OH_DATA.wages.length === 0) return [];
+
+  const coretradeNames = new Set(
+    WORKERS.filter(w => w.skills && w.skills.includes('Coretrade')).map(w => normName(w.name))
+  );
+
+  return OH_DATA.wages
+    .map((w, idx) => ({ ...w, sheetRowIndex: idx }))
+    .filter(w => w.levy === NON_CORETRADE_LEVY && coretradeNames.has(normName(w.name)));
+}
+
+function renderLevyBanner() {
+  const banner = document.getElementById('levy-fix-banner');
+  if (!banner) return;
+  const mismatches = detectLevyMismatches();
+
+  if (mismatches.length === 0) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const names = mismatches.map(m => m.name).join(', ');
+  const monthlySaving = mismatches.length * (NON_CORETRADE_LEVY - CORETRADE_LEVY);
+  banner.style.display = 'flex';
+  banner.querySelector('#levy-fix-title-text').textContent =
+    `${names} ${mismatches.length===1?'has':'have'} Coretrade — levy should be $${CORETRADE_LEVY}, not $${NON_CORETRADE_LEVY}.`;
+  banner.querySelector('#levy-fix-saving-text').innerHTML =
+    `Saving: <strong style="color:#6dcc95">$${monthlySaving.toLocaleString()}/month · $${(monthlySaving*12).toLocaleString()}/year</strong>`;
+  banner._mismatches = mismatches;
+}
+
+// ── Apply detected levy corrections to the live Wages sheet ──
 async function applyLevyFix() {
   const btn = document.getElementById('levy-fix-btn');
   const status = document.getElementById('levy-fix-status');
+  const banner = document.getElementById('levy-fix-banner');
+  const mismatches = banner._mismatches || detectLevyMismatches();
+  if (mismatches.length === 0) return;
+
   btn.disabled = true;
   btn.textContent = 'Applying…';
   status.textContent = '';
 
-  // Need to find exact row numbers in the Wages sheet for these 4 workers
-  // Sheet row numbers (1-indexed including header rows):
-  // The wages sheet header is row 1, data starts row 2
-  // Order in sheet: Chew Wei Jian(2), Chew Eng Thiam(3), Hii Nai Kang(4), Tan Lian Teng(5),
-  // Goh Ching Leong(6), Wee Meng Teck(7), Neo Hong Cheng(8), Tony Chew(9), Cheng Siak Khoon(10),
-  // Joyce Cheng(11), Zin Mar Wai(12), Amily(13),
-  // Akbor(14), Ariff(15), Chinnaiya(16), Dulal(17), Gaffar(18), Hasan(19), Hossain(20),
-  // Kumar(21), Vignesh(22), Hamidul(23), M.Pandi(24), Mahasin(25), Miraz(26), Murugan(27),
-  // (unnamed)(28), Raza(29), Reajul(30), K.Pandi(31), Saddam Hosen(32), Sujon(33), Suresh(34), Thu Lwin Oo(35)
-  // Levy column = col 4 (D)
-
   const WAGE_SHEET = 'Wages, Levy & Etc';
   const LEVY_COL = 4; // Column D
+  // sheetRowIndex is 0-based into the parsed data rows; actual sheet row = header offset + index + 1.
+  // wageStart marks the header row (0-based) found during parsing — data begins the row after it.
+  const headerOffset = (window._wageHeaderRow ?? 0) + 2; // +1 for 1-indexing, +1 for row after header
 
-  const fixes = [
-    { name: 'Hasan',   row: 19, oldLevy: 900, newLevy: 500 },
-    { name: 'Hossain', row: 20, oldLevy: 900, newLevy: 500 },
-    { name: 'Murugan', row: 27, oldLevy: 900, newLevy: 500 },
-    { name: 'Sujon',   row: 33, oldLevy: 900, newLevy: 500 },
-  ];
-
-  const updates = fixes.map(f => ({ row: f.row, col: LEVY_COL, value: 500 }));
+  const updates = mismatches.map(m => ({
+    row: headerOffset + m.sheetRowIndex,
+    col: LEVY_COL,
+    value: CORETRADE_LEVY
+  }));
   const ok = await writeBatchToSheet(WAGE_SHEET, updates);
 
   if (ok) {
     btn.textContent = '✓ Done';
     btn.style.borderColor = '#2E7D52';
     btn.style.color = '#6dcc95';
-    status.textContent = '4 levy rates updated. Refreshing overheads…';
+    status.textContent = `${mismatches.length} levy rate${mismatches.length!==1?'s':''} updated. Refreshing overheads…`;
     status.style.color = '#6dcc95';
     setTimeout(() => loadOverheadSheet(true), 1500);
   } else {
@@ -3170,6 +3074,7 @@ function renderWorkersFromSheet() {
 
   // Render using existing renderWorkers logic but inject sheet-synced data
   renderWorkers();
+  renderLevyBanner();
 
   // Update sync time in worker tab
   const el = document.getElementById('worker-sheet-sync');
@@ -3247,6 +3152,7 @@ function renderOverheadsFromSheet() {
 
   // Parse wages
   const wageStart = wages.findIndex(r => r[1]==='Wages' || r[2]==='CPF' || r[0]==='Wages' || r[1]==='CPF');
+  window._wageHeaderRow = wageStart;
   const wageRows = wages.slice(wageStart+1).filter(r => r[0]!=='Total' && r[0]!=='Wages' && (parseMoney(r[1])||parseMoney(r[2])||parseMoney(r[3])||parseMoney(r[4])));
   const parsedWages = wageRows.map(r => ({
     name: r[0] ? r[0].trim() : '(unnamed)', wages: parseMoney(r[1]), cpf: parseMoney(r[2]),
@@ -3280,6 +3186,7 @@ function renderOverheadsFromSheet() {
   OH_DATA.summaryTotals = { veh: totalVeh, prop: totalProp, wage: totalWage, sw: totalSW, grand };
 
   renderOverheads();
+  renderLevyBanner();
 
   const el = document.getElementById('overhead-sheet-sync');
   if (el) el.textContent = `Live from Google Sheets · synced ${fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
@@ -3801,7 +3708,7 @@ loadSheetData(false);
 loadWorkerSheet(false);
 loadOverheadSheet(false);
 loadCostsSheet(false);
-renderQuotations();
+loadQuotations(false);
 // SUBCONTRACTORS
 let _scEditId=null;
 function loadSubcons(){try{return JSON.parse(localStorage.getItem('gpc_subcons')||'[]');}catch(e){return [];}}
