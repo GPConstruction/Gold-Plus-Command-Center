@@ -596,6 +596,8 @@
     <button class="filter-btn active" onclick="setQuotFilter('all',this)">All</button>
     <button class="filter-btn" onclick="setQuotFilter('pending',this)">Pending</button>
     <button class="filter-btn" onclick="setQuotFilter('confirmed',this)">Confirmed</button>
+    <button class="filter-btn" onclick="setQuotFilter('no-response',this)">No Response</button>
+    <button class="filter-btn" onclick="setQuotFilter('rejected',this)">Rejected</button>
     <div style="flex:1"></div>
     <button class="btn" onclick="loadQuotations(true)">↻ Refresh from Google Sheets</button>
     <a href="https://docs.google.com/spreadsheets/d/1jpaz_LB3ffmgX7lNojj4aV-GEOXC3HJAnedB0Oj88-s/edit" target="_blank" class="btn btn-gold" style="font-size:12px">Open Sheet ↗</a>
@@ -611,7 +613,7 @@
           <th>Client</th>
           <th>Project Value (SGD)</th>
           <th>Quotation Date</th>
-          <th>Confirmation</th>
+          <th>Status</th>
           <th>Matched Project</th>
         </tr></thead>
         <tbody id="quot-body"></tbody>
@@ -619,7 +621,7 @@
     </div>
   </div>
   <div class="notice" id="quot-notice" style="display:none">No quotations found in the sheet yet.</div>
-  <div class="notice" style="font-size:11px;color:var(--text3);margin-top:8px">Read-only — add or edit quotations directly in the Google Sheet's "Quotation" tab. Columns expected: Quotation List, Client, Project Value, Quotation Date, Confirmation.</div>
+  <div class="notice" style="font-size:11px;color:var(--text3);margin-top:8px">Read-only — add or edit quotations directly in the Google Sheet's "Quotation" tab. Columns expected: Quotation List, Client, Project Value, Quotation Date, (blank), Confirmation, Accepted, Rejected, No Response. Mark a column "Y" to set that flag — Rejected takes priority over No Response, which takes priority over Accepted/Confirmation. A blank cell in any of these columns just means that flag hasn't been set.</div>
 </div>
 
 <div class="panel active" id="panel-works">
@@ -2620,18 +2622,17 @@ let quotations = [];
 let quotFilter = 'all';
 let quotCache = null;
 
-function quotConfirmClass(c) {
-  const v = (c || '').trim().toUpperCase();
-  if (v === 'Y' || v === 'YES' || v === 'CONFIRMED' || v === '✓') return 'qs-awarded';
-  if (v === 'X' || v === 'NO') return 'qs-pending';
-  return 'qs-pending';
+// Status priority: Rejected > No Response > Accepted/Confirmed > Pending.
+// Each of confirmation/accepted/rejected/noResponse is a raw sheet cell — 'Y' = flag set, anything else (blank, 'X', 'N') = not set.
+function isFlagYes(v) {
+  return (v || '').trim().toUpperCase() === 'Y';
 }
 
-function quotConfirmLabel(c) {
-  const v = (c || '').trim().toUpperCase();
-  if (v === 'Y' || v === 'YES' || v === 'CONFIRMED' || v === '✓') return 'Confirmed';
-  if (v === '') return 'Pending';
-  return 'Pending';
+function quotStatus(q) {
+  if (isFlagYes(q.rejected))    return { label: 'Rejected',    cls: 'qs-lost' };
+  if (isFlagYes(q.noResponse))  return { label: 'No Response', cls: 'qs-noresponse' };
+  if (isFlagYes(q.accepted) || isFlagYes(q.confirmation)) return { label: 'Confirmed', cls: 'qs-awarded' };
+  return { label: 'Pending', cls: 'qs-pending' };
 }
 
 // ── Fuzzy match a quotation's project title against the Project List ──
@@ -2683,7 +2684,7 @@ async function loadQuotations(forceRefresh) {
     const res = await fetch(SHEET_CSV_BASE(SHEET_ID) + encodeURIComponent('Quotation'));
     const csv = await res.text();
     const rows = parseCSV(csv);
-    // Expected header: Quotation List, Client, Project Value, Quotation Date, Confirmation
+    // Header: Quotation List, Client, Project Value, Quotation Date, (blank), Confirmation, Accepted, Rejected, No Response
     quotations = rows.slice(1)
       .filter(r => r[0] && r[0].trim() && r[0].trim() !== 'Quotation List')
       .map((r, i) => {
@@ -2696,7 +2697,10 @@ async function loadQuotations(forceRefresh) {
           amount: parseMoney(r[2]),
           amountRaw: r[2] || '',
           quotDate: r[3] || '',
-          confirmation: r[4] || '',
+          confirmation: r[5] || '',
+          accepted: r[6] || '',
+          rejected: r[7] || '',
+          noResponse: r[8] || '',
           matchedProject: matched,
         };
       });
@@ -2711,17 +2715,24 @@ async function loadQuotations(forceRefresh) {
 }
 
 function renderQuotations() {
+  const statusOf = q => quotStatus(q).label;
   const filtered = quotFilter === 'all' ? quotations
-    : quotFilter === 'confirmed' ? quotations.filter(q => quotConfirmLabel(q.confirmation) === 'Confirmed')
-    : quotations.filter(q => quotConfirmLabel(q.confirmation) === 'Pending');
+    : quotFilter === 'confirmed'    ? quotations.filter(q => statusOf(q) === 'Confirmed')
+    : quotFilter === 'pending'      ? quotations.filter(q => statusOf(q) === 'Pending')
+    : quotFilter === 'rejected'     ? quotations.filter(q => statusOf(q) === 'Rejected')
+    : quotFilter === 'no-response'  ? quotations.filter(q => statusOf(q) === 'No Response')
+    : quotations;
 
   // ── KPIs ──
-  const total      = quotations.length;
-  const confirmed  = quotations.filter(q => quotConfirmLabel(q.confirmation) === 'Confirmed').length;
-  const pending    = total - confirmed;
-  const totalVal   = quotations.reduce((a,q) => a + (q.amount||0), 0);
-  const confirmedVal = quotations.filter(q=>quotConfirmLabel(q.confirmation)==='Confirmed').reduce((a,q)=>a+(q.amount||0),0);
-  const winRate    = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+  const total       = quotations.length;
+  const confirmed   = quotations.filter(q => statusOf(q) === 'Confirmed').length;
+  const pending     = quotations.filter(q => statusOf(q) === 'Pending').length;
+  const rejected    = quotations.filter(q => statusOf(q) === 'Rejected').length;
+  const noResponse  = quotations.filter(q => statusOf(q) === 'No Response').length;
+  const totalVal    = quotations.reduce((a,q) => a + (q.amount||0), 0);
+  const confirmedVal = quotations.filter(q=>statusOf(q)==='Confirmed').reduce((a,q)=>a+(q.amount||0),0);
+  const decided     = confirmed + rejected; // quotes with a definitive outcome
+  const winRate     = decided > 0 ? Math.round((confirmed / decided) * 100) : 0;
 
   document.getElementById('quot-kpis').innerHTML = `
     <div class="quot-kpi hl">
@@ -2737,17 +2748,28 @@ function renderQuotations() {
     <div class="quot-kpi">
       <div class="kpi-label">Win Rate</div>
       <div class="kpi-val">${winRate}%</div>
-      <div class="kpi-sub">${confirmed} of ${total}</div>
+      <div class="kpi-sub">${confirmed} of ${decided} decided</div>
     </div>
     <div class="quot-kpi ${pending>0?'hl':''}">
-      <div class="kpi-label">Pending Confirmation</div>
+      <div class="kpi-label">Pending</div>
       <div class="kpi-val" style="color:${pending>0?'var(--gold-light)':'#6dcc95'}">${pending}</div>
       <div class="kpi-sub">Awaiting client confirmation</div>
     </div>
+    <div class="quot-kpi">
+      <div class="kpi-label">No Response</div>
+      <div class="kpi-val" style="color:#9a7aba">${noResponse}</div>
+      <div class="kpi-sub">Client has gone quiet</div>
+    </div>
+    <div class="quot-kpi">
+      <div class="kpi-label">Rejected</div>
+      <div class="kpi-val" style="color:#e07070">${rejected}</div>
+      <div class="kpi-sub">Quote turned down</div>
+    </div>
   `;
 
-  // Update badge — show pending count
-  document.getElementById('quot-badge').textContent = pending > 0 ? pending : '';
+  // Update badge — show pending + no-response count (things needing follow-up)
+  const needsFollowUp = pending + noResponse;
+  document.getElementById('quot-badge').textContent = needsFollowUp > 0 ? needsFollowUp : '';
 
   const notice = document.getElementById('quot-notice');
   if (quotations.length === 0) {
@@ -2760,7 +2782,7 @@ function renderQuotations() {
   // ── Table ──
   document.getElementById('quot-body').innerHTML = filtered.map((q,i) => {
     const amountFmt = q.amount ? `$${q.amount.toLocaleString()}` : (q.amountRaw || '—');
-    const confLabel = quotConfirmLabel(q.confirmation);
+    const { label: statusLabel, cls: statusCls } = quotStatus(q);
     const matchFmt = q.matchedProject
       ? `<span class="qs-awarded" title="${q.matchedProject.name}">✓ ${q.matchedProject.status}</span>`
       : `<span style="color:var(--text3);font-size:11px">No match</span>`;
@@ -2770,7 +2792,7 @@ function renderQuotations() {
       <td>${q.client}</td>
       <td style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">${amountFmt}</td>
       <td style="font-size:12px;color:var(--text3)">${q.quotDate || '—'}</td>
-      <td><span class="${quotConfirmClass(q.confirmation)}">${confLabel}</span></td>
+      <td><span class="${statusCls}">${statusLabel}</span></td>
       <td>${matchFmt}</td>
     </tr>`;
   }).join('');
@@ -2778,7 +2800,7 @@ function renderQuotations() {
 
 function setQuotFilter(f, btn) {
   quotFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#panel-quotations .filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderQuotations();
 }
@@ -3489,6 +3511,8 @@ const COSTS_TRADES = [
       { name:'PVC Corner Bead',             unit:'pc',       price:0.30,  updated:'',          supplier:'Rectitude',
         alt:[{ price:0.50, supplier:'Kai Siong' }] },
       { name:'Febatape 50mm',               unit:'roll',     price:3.80,  updated:'18/11/2025',supplier:'' },
+      { name:'Number Lock',                 unit:'pc',       price:4.00,  updated:'',          supplier:'Kai Siong',
+        alt:[{ price:6.00, supplier:'M & F' }] },
     ]
   },
   {
@@ -3527,7 +3551,8 @@ const COSTS_TRADES = [
       { name:'MK Honeywell 60W Dimmer',         unit:'pc',  price:17.50, updated:'', supplier:'' },
       { name:'MK Metalclad Heater',             unit:'pc',  price:30.00, updated:'', supplier:'' },
       { name:'Schneider 1G W/P Cover',          unit:'pc',  price:5.00,  updated:'', supplier:'' },
-      { name:'PVC Electrical Tape',             unit:'pc',  price:0.40,  updated:'', supplier:'' },
+      { name:'PVC Electrical Tape',             unit:'pc',  price:0.40,  updated:'', supplier:'CCM',
+        alt:[{ price:0.50, supplier:'Kai Siong' }] },
       { name:'20mm PVC Adaptor',                unit:'pc',  price:0.20,  updated:'', supplier:'' },
       { name:'MK Metalclad 13A x2 SSO',         unit:'pc',  price:85.00, updated:'1/9/2025', supplier:'' },
       { name:'HG Metalclad 13A x2 SSO',         unit:'pc',  price:73.00, updated:'1/9/2025', supplier:'',
@@ -3578,7 +3603,7 @@ const COSTS_TRADES = [
       { name:'Dulux Wash & Wear (5L)',       unit:'container',price:72.00,  updated:'',          supplier:'' },
       { name:'Dulux Super Maxilite (20L)',   unit:'container',price:60.00,  updated:'15/9/2025', supplier:'' },
       { name:'Nippon 5170 Oil Sealer (20L)', unit:'container',price:119.00, updated:'10/10/2025',supplier:'' },
-      { name:'Focus 8080 Oil Sealer (20L)',  unit:'container',price:100.00, updated:'1/11/2025', supplier:'',
+      { name:'Focus 8080 Oil Sealer (20L)',  unit:'container',price:104.00, updated:'20/5/2026', supplier:'',
         alt:[{ price:119.00, name:'Nippon 5170', supplier:'' }] },
       { name:'Bodelac 9000 (5L)',            unit:'container',price:59.00,  updated:'20/9/2024', supplier:'' },
       { name:'Vinilex 5000 (5L)',            unit:'container',price:59.00,  updated:'10/10/2025',supplier:'' },
@@ -3590,7 +3615,10 @@ const COSTS_TRADES = [
       { name:'K10 Sovacryl (25L)',           unit:'container',price:125.00, updated:'',          supplier:'' },
       { name:'Road Line Yellow (5L)',        unit:'container',price:32.00,  updated:'5/8/2025',  supplier:'Kai Siong',
         alt:[{ price:36.00, supplier:'Winly (Berger brand)' }] },
-      { name:'Thinner (18L)',                unit:'container',price:45.00,  updated:'',          supplier:'' },
+      { name:'Thinner (18L)',                unit:'container',price:45.00,  updated:'',          supplier:'',
+        alt:[{ price:52.00, supplier:'Rectitude' }] },
+      { name:'Etching Primer',               unit:'container',price:38.00,  updated:'',          supplier:'Kai Siong',
+        alt:[{ price:40.00, supplier:'Rectitude' }] },
       { name:'4" Roller Refill',             unit:'pc',       price:0.50,   updated:'',          supplier:'' },
       { name:'Masking Tape 2"x20m',         unit:'roll',     price:0.70,   updated:'15/10/2025',supplier:'' },
     ]
@@ -3629,8 +3657,34 @@ const COSTS_TRADES = [
       { name:'Cotton Rag White',         unit:'bag',  price:40.00, updated:'24/12/2025',supplier:'Aik Lee' },
       { name:'Welding Electrode RB26',   unit:'kg',   price:3.10,  updated:'24/12/2025',supplier:'Aik Lee' },
       { name:'TR Flour Bag',             unit:'pc',   price:0.28,  updated:'20/12/2025',supplier:'Kaysav Hardware' },
+      { name:'Safety Boots',             unit:'set',  price:31.00, updated:'',          supplier:'Rectitude',
+        alt:[{ price:37.00, supplier:'Kai Siong' }] },
       { name:'S/S 4" Floor Trap Cover',  unit:'pc',   price:16.00, updated:'',          supplier:'' },
-      { name:'6" Floor Trap Cover',      unit:'pc',   price:18.50, updated:'',          supplier:'' },
+      { name:'6" Floor Trap Cover (PVC)',unit:'pc',   price:1.50,  updated:'',          supplier:'Best' },
+      { name:'6" Floor Trap Cover (S/S)',unit:'pc',   price:7.50,  updated:'',          supplier:'Best',
+        alt:[{ price:8.00, supplier:'Rectitude' }] },
+    ]
+  },
+  {
+    id: 'timber', icon: '🪵', label: 'Timber / Carpentry',
+    items: [
+      { name:'18mm PVC Blockboard (4\'x8\')',           unit:'pc', price:32.00, updated:'Nov 2025', supplier:'Ban Heng Long' },
+      { name:'18mm Plywood, Light (4\'x8\')',           unit:'pc', price:33.00, updated:'Mar 2025', supplier:'Ban Heng Long' },
+      { name:'18mm Plywood, Heavy (4\'x8\')',           unit:'pc', price:36.00, updated:'Mar 2025', supplier:'Ban Heng Long' },
+      { name:'Marine WBP Plywood 9mm (4\'x8\')',        unit:'pc', price:26.00, updated:'Jan 2025', supplier:'Ban Heng Long' },
+      { name:'Marine WBP Plywood 18mm (4\'x8\')',       unit:'pc', price:75.00, updated:'Jan 2024', supplier:'Ban Heng Long' },
+      { name:'6mm Bending Plywood (4\'x8\')',           unit:'pc', price:25.00, updated:'Nov 2025', supplier:'Ban Heng Long' },
+      { name:'9mm Bending Plywood (4\'x8\')',           unit:'pc', price:34.00, updated:'Nov 2025', supplier:'Ban Heng Long' },
+      { name:'15mm O/S PVC Plywood (4\'x8\')',          unit:'pc', price:27.50, updated:'Oct 2025', supplier:'Ban Heng Long' },
+      { name:'3mm BBCC Plywood (4\'x8\')',              unit:'pc', price:7.50,  updated:'Nov 2025', supplier:'Ban Heng Long' },
+      { name:'6mm BBCC Plywood (4\'x8\')',              unit:'pc', price:12.00, updated:'Nov 2025', supplier:'Ban Heng Long' },
+      { name:'2\'x10\' Timber Joint',                   unit:'pc', price:3.50,  updated:'Nov 2025', supplier:'Ban Heng Long' },
+      { name:'Labour — Parquet Installation',           unit:'sqft',price:5.50, updated:'',          supplier:'' },
+      { name:'Sanding and Varnishing',                  unit:'sqft',price:1.50, updated:'',          supplier:'' },
+      { name:'Sharp Blade — King\'s 300mm x 96T',       unit:'pc', price:15.60, updated:'',          supplier:'Team Leader (S)' },
+      { name:'23 x 1mm ACC',                            unit:'foot run',price:1.80, updated:'2/1/2026', supplier:'Craftpenter' },
+      { name:'46 x 1mm ACC',                            unit:'foot run',price:2.80, updated:'2/1/2026', supplier:'Craftpenter' },
+      { name:'Straight (ACC)',                          unit:'foot run',price:0.70, updated:'',          supplier:'' },
     ]
   },
 ];
