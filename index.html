@@ -3467,6 +3467,13 @@ function renderWorksFromCache() {
   const totalRemaining= curRows.reduce((a,r)=>a+parseMoney(r[6]),0);
   const withProgress  = curRows.filter(r=>r[7]==='Y' || r[7]==='y').length;
 
+  // Completed Projects outstanding — computed early so it can feed into the top KPI summary below.
+  // Sheet header: Project List, Client, Project Value, Start Date, End Date, Billed, Received, Balance Remaining
+  const compRowsForKpi = completed.slice(1).filter(r => r[0] && r[0] !== 'Project List');
+  const compOutstandingRows = compRowsForKpi.filter(r => billedReceivedFlag(r[6]) !== 'yes');
+  const compOutstandingVal = compOutstandingRows.reduce((a,r)=>a+parseMoney(r[7]),0);
+  const combinedRemaining = totalRemaining + compOutstandingVal;
+
   // KPIs
   document.getElementById('works-kpis').innerHTML = `
     <div class="quot-kpi hl">
@@ -3481,8 +3488,8 @@ function renderWorksFromCache() {
     </div>
     <div class="quot-kpi">
       <div class="kpi-label">Outstanding / Remaining</div>
-      <div class="kpi-val" style="color:#e0a050">$${(totalRemaining/1000).toFixed(0)}K</div>
-      <div class="kpi-sub">Yet to receive</div>
+      <div class="kpi-val" style="color:#e0a050">$${(combinedRemaining/1000).toFixed(0)}K</div>
+      <div class="kpi-sub">$${(totalRemaining/1000).toFixed(0)}K current + $${(compOutstandingVal/1000).toFixed(0)}K completed not yet received</div>
     </div>
     <div class="quot-kpi">
       <div class="kpi-label">Progress Payment</div>
