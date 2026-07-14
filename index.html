@@ -587,6 +587,7 @@
     <h2>Quotation Tracker</h2>
     <p>Live from your Google Sheets Project List (Quotation tab). Review every Friday — follow up on anything pending. <span id="quot-sheet-sync">Loading…</span></p>
   </div>
+  <div id="quot-history-setup-banner"></div>
 
   <!-- KPI strip -->
   <div class="quot-kpi-grid" id="quot-kpis"></div>
@@ -598,6 +599,7 @@
     <button class="filter-btn" onclick="setQuotFilter('confirmed',this)">Confirmed</button>
     <button class="filter-btn" onclick="setQuotFilter('no-response',this)">No Response</button>
     <button class="filter-btn" onclick="setQuotFilter('rejected',this)">Rejected</button>
+    <button class="filter-btn" onclick="setQuotFilter('archived',this)">Archived (removed from sheet)</button>
     <div style="flex:1"></div>
     <button class="btn" onclick="loadQuotations(true)">↻ Refresh from Google Sheets</button>
     <a href="https://docs.google.com/spreadsheets/d/1jpaz_LB3ffmgX7lNojj4aV-GEOXC3HJAnedB0Oj88-s/edit" target="_blank" class="btn btn-gold" style="font-size:12px">Open Sheet ↗</a>
@@ -621,7 +623,7 @@
     </div>
   </div>
   <div class="notice" id="quot-notice" style="display:none">No quotations found in the sheet yet.</div>
-  <div class="notice" style="font-size:11px;color:var(--text3);margin-top:8px">Read-only — add or edit quotations directly in the Google Sheet's "Quotation" tab. Columns expected: Quotation List, Client, Project Value, Quotation Date, (blank), Confirmation, Accepted, Rejected, No Response. Mark a column "Y" to set that flag — Rejected takes priority over No Response, which takes priority over Accepted/Confirmation. A blank cell in any of these columns just means that flag hasn't been set.</div>
+  <div class="notice" style="font-size:11px;color:var(--text3);margin-top:8px">Read-only — add or edit quotations directly in the Google Sheet's "Quotation" tab. Columns expected: Quotation List, Client, Project Value, Quotation Date, (blank), Confirmation, Accepted, Rejected, No Response. Mark a column "Y" to set that flag — Rejected takes priority over No Response, which takes priority over Accepted/Confirmation. A blank cell in any of these columns just means that flag hasn't been set. Once a quotation shows Confirmed or Rejected, it's recorded in a separate "Quotation History" tab in this same spreadsheet — so Confirmed Value, Win Rate, and Rejected count keep counting it under "Archived" even after you delete the original row. This is shared across every device, unlike a browser-only cache. Use the Archived filter to see what's being carried forward. <strong>One-time setup required:</strong> deploy the included Apps Script Web App and paste its URL into <code>QUOT_HISTORY_APPSCRIPT_URL</code> in index.html — see the comments at the top of that script for exact steps.</div>
 </div>
 
 <div class="panel active" id="panel-works">
@@ -2635,6 +2637,94 @@ function quotStatus(q) {
   return { label: 'Pending', cls: 'qs-pending' };
 }
 
+// ── Quotation history (sheet-backed "Quotation History" tab) ──
+// Once a quotation is Confirmed or Rejected, it gets written to a dedicated "Quotation History"
+// tab in the same Google Sheet — via a small Apps Script Web App, since Sheets has no public
+// write API. This means Win Rate / Confirmed Value keep counting it even after the original row
+// is deleted from the Quotation tab, and the history is shared across every device/browser,
+// unlike a localStorage-based approach.
+//
+// SETUP REQUIRED: deploy QuotationHistory_AppsScript.gs as a Web App bound to this spreadsheet
+// (see the comments in that file for exact steps), then paste the resulting Web app URL below.
+// Until a URL is set, history is still READ from the "Quotation History" tab if it exists, but
+// new Confirmed/Rejected outcomes won't be WRITTEN there automatically.
+const QUOT_HISTORY_APPSCRIPT_URL = ''; // <-- paste your deployed Apps Script Web App URL here
+const QUOT_HISTORY_TAB = 'Quotation History';
+const QUOT_HISTORY_EXPECTED_HEADER = 'description'; // first header cell, lower-cased, used to sanity-check the tab exists
+
+function quotHistoryKey(desc) {
+  return (desc || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+let quotHistorySheetCache = null; // { map, fetchedAt } — in-memory only, re-fetched each session
+
+// Read the "Quotation History" tab. Guards against Google Sheets' gviz quirk where requesting a
+// tab name that doesn't exist silently falls back to whatever tab is currently active, which
+// would otherwise get misread as history data — hence the header check.
+async function fetchQuotHistorySheet(forceRefresh) {
+  if (quotHistorySheetCache && !forceRefresh) return quotHistorySheetCache.map;
+  try {
+    const res = await fetch(SHEET_CSV_BASE(SHEET_ID) + encodeURIComponent(QUOT_HISTORY_TAB));
+    const csv = await res.text();
+    const rows = parseCSV(csv);
+    const header = ((rows[0] && rows[0][0]) || '').trim().toLowerCase();
+    const map = {};
+    if (header === QUOT_HISTORY_EXPECTED_HEADER) {
+      rows.slice(1).forEach(r => {
+        if (!r[0] || !r[0].trim()) return;
+        map[quotHistoryKey(r[0])] = {
+          desc: r[0], client: r[1] || '', amount: parseMoney(r[2]),
+          status: (r[3] || '').trim(), firstRecorded: r[4] || '', lastUpdated: r[5] || '',
+        };
+      });
+    }
+    // else: tab doesn't exist yet (first-time setup, before any POST has created it) — treat as empty
+    quotHistorySheetCache = { map, fetchedAt: new Date() };
+    return map;
+  } catch (e) {
+    return quotHistorySheetCache ? quotHistorySheetCache.map : {};
+  }
+}
+
+// Push any newly-Confirmed/Rejected live quotations (or ones whose amount/status changed) up to
+// the sheet-backed history. No-ops silently if QUOT_HISTORY_APPSCRIPT_URL hasn't been set up yet.
+async function pushQuotHistory(liveQuotations, historyMap) {
+  if (!QUOT_HISTORY_APPSCRIPT_URL) return false;
+  const toPush = [];
+  liveQuotations.forEach(q => {
+    const status = quotStatus(q).label;
+    if (status !== 'Confirmed' && status !== 'Rejected') return;
+    const existing = historyMap[quotHistoryKey(q.desc)];
+    if (!existing || existing.status !== status || existing.amount !== (q.amount || 0)) {
+      toPush.push({ desc: q.desc, client: q.client, amount: q.amount || 0, status });
+    }
+  });
+  if (toPush.length === 0) return false;
+  try {
+    // Apps Script web apps don't send CORS headers for the response, but a simple POST like this
+    // still succeeds server-side — we just can't read the response, so fire-and-forget.
+    await fetch(QUOT_HISTORY_APPSCRIPT_URL, { method: 'POST', body: JSON.stringify({ entries: toPush }), mode: 'no-cors' });
+    return true;
+  } catch (e) {
+    return false; // will retry next load
+  }
+}
+
+// Archived-only entries: recorded in Quotation History but no longer present in the live Quotation tab.
+let quotArchived = [];
+async function refreshQuotArchived(liveQuotations) {
+  let historyMap = await fetchQuotHistorySheet(false);
+  const pushed = await pushQuotHistory(liveQuotations, historyMap);
+  if (pushed) historyMap = await fetchQuotHistorySheet(true); // re-read so the new entries are reflected immediately
+  const liveKeys = new Set(liveQuotations.map(q => quotHistoryKey(q.desc)));
+  quotArchived = Object.values(historyMap).filter(h => !liveKeys.has(quotHistoryKey(h.desc)));
+}
+
+// Archived-only entries (removed from the sheet), for folding into Win Rate / Confirmed Value.
+function archivedQuotHistory() {
+  return quotArchived;
+}
+
 // ── Fuzzy match a quotation's project title against the Project List ──
 // Strips common noise words (V.O, VO, FOR, AT, @ symbols, punctuation) and compares
 // remaining significant words — handles naming drift like
@@ -2705,6 +2795,7 @@ async function loadQuotations(forceRefresh) {
         };
       });
     quotCache = { fetchedAt: new Date() };
+    await refreshQuotArchived(quotations);
     if (syncEl) syncEl.textContent = `Last synced: ${quotCache.fetchedAt.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"})}`;
     renderQuotations();
   } catch (e) {
@@ -2715,40 +2806,70 @@ async function loadQuotations(forceRefresh) {
 }
 
 function renderQuotations() {
+  const setupBanner = document.getElementById('quot-history-setup-banner');
+  if (setupBanner) {
+    setupBanner.innerHTML = QUOT_HISTORY_APPSCRIPT_URL ? '' : `
+      <div class="notice" style="font-size:11px;color:var(--gold-light);background:var(--gold-dim);border:1px solid var(--gold-dim);border-radius:8px;padding:8px 12px;margin-bottom:12px">
+        ⚠ Quotation History sync isn't set up yet — Confirmed/Rejected outcomes won't survive a row being deleted from the sheet until you deploy the Apps Script and paste its URL into <code>QUOT_HISTORY_APPSCRIPT_URL</code>. See the notice at the bottom of this tab for steps.
+      </div>`;
+  }
   const statusOf = q => quotStatus(q).label;
-  const filtered = quotFilter === 'all' ? quotations
-    : quotFilter === 'confirmed'    ? quotations.filter(q => statusOf(q) === 'Confirmed')
-    : quotFilter === 'pending'      ? quotations.filter(q => statusOf(q) === 'Pending')
-    : quotFilter === 'rejected'     ? quotations.filter(q => statusOf(q) === 'Rejected')
-    : quotFilter === 'no-response'  ? quotations.filter(q => statusOf(q) === 'No Response')
-    : quotations;
+  const archived = archivedQuotHistory();
+
+  // Normalize both live sheet rows and archived history entries into one display shape
+  const liveRows = quotations.map(q => ({
+    desc: q.desc, client: q.client, amount: q.amount, amountRaw: q.amountRaw,
+    quotDate: q.quotDate, status: statusOf(q), matchedProject: q.matchedProject, isArchived: false,
+  }));
+  const archivedRows = archived.map(h => ({
+    desc: h.desc, client: h.client, amount: h.amount, amountRaw: '',
+    quotDate: '', status: h.status, matchedProject: null, isArchived: true,
+  }));
+
+  const filtered = quotFilter === 'all'          ? liveRows
+    : quotFilter === 'confirmed'    ? liveRows.filter(q => q.status === 'Confirmed')
+    : quotFilter === 'pending'      ? liveRows.filter(q => q.status === 'Pending')
+    : quotFilter === 'rejected'     ? liveRows.filter(q => q.status === 'Rejected')
+    : quotFilter === 'no-response'  ? liveRows.filter(q => q.status === 'No Response')
+    : quotFilter === 'archived'     ? archivedRows
+    : liveRows;
 
   // ── KPIs ──
+  // Pipeline/Pending/No-Response reflect the LIVE sheet only — those are things still active right now.
+  // Confirmed/Rejected/Win Rate also fold in archived history (rows already deleted from the sheet)
+  // so a win doesn't vanish from the stats just because the row was cleared out after porting it over.
   const total       = quotations.length;
-  const confirmed   = quotations.filter(q => statusOf(q) === 'Confirmed').length;
   const pending     = quotations.filter(q => statusOf(q) === 'Pending').length;
-  const rejected    = quotations.filter(q => statusOf(q) === 'Rejected').length;
   const noResponse  = quotations.filter(q => statusOf(q) === 'No Response').length;
   const totalVal    = quotations.reduce((a,q) => a + (q.amount||0), 0);
-  const confirmedVal = quotations.filter(q=>statusOf(q)==='Confirmed').reduce((a,q)=>a+(q.amount||0),0);
-  const decided     = confirmed + rejected; // quotes with a definitive outcome
-  const winRate     = decided > 0 ? Math.round((confirmed / decided) * 100) : 0;
+
+  const liveConfirmed   = quotations.filter(q => statusOf(q) === 'Confirmed');
+  const liveRejected    = quotations.filter(q => statusOf(q) === 'Rejected');
+  const archivedConfirmed = archived.filter(h => h.status === 'Confirmed');
+  const archivedRejected  = archived.filter(h => h.status === 'Rejected');
+
+  const confirmed    = liveConfirmed.length + archivedConfirmed.length;
+  const rejected     = liveRejected.length + archivedRejected.length;
+  const confirmedVal = liveConfirmed.reduce((a,q)=>a+(q.amount||0),0) + archivedConfirmed.reduce((a,h)=>a+(h.amount||0),0);
+  const decided       = confirmed + rejected; // quotes with a definitive outcome, live + archived
+  const winRate        = decided > 0 ? Math.round((confirmed / decided) * 100) : 0;
+  const archivedCount  = archivedConfirmed.length + archivedRejected.length;
 
   document.getElementById('quot-kpis').innerHTML = `
     <div class="quot-kpi hl">
       <div class="kpi-label">Total Pipeline Value</div>
       <div class="kpi-val">$${(totalVal/1000).toFixed(0)}K</div>
-      <div class="kpi-sub">${total} quotation${total!==1?'s':''} total</div>
+      <div class="kpi-sub">${total} quotation${total!==1?'s':''} in sheet now</div>
     </div>
     <div class="quot-kpi">
       <div class="kpi-label">Confirmed Value</div>
       <div class="kpi-val" style="color:#6dcc95">$${(confirmedVal/1000).toFixed(0)}K</div>
-      <div class="kpi-sub">${confirmed} confirmed</div>
+      <div class="kpi-sub">${confirmed} confirmed${archivedConfirmed.length?` (${archivedConfirmed.length} archived)`:''}</div>
     </div>
     <div class="quot-kpi">
       <div class="kpi-label">Win Rate</div>
       <div class="kpi-val">${winRate}%</div>
-      <div class="kpi-sub">${confirmed} of ${decided} decided</div>
+      <div class="kpi-sub">${confirmed} of ${decided} decided${archivedCount?` · ${archivedCount} archived`:''}</div>
     </div>
     <div class="quot-kpi ${pending>0?'hl':''}">
       <div class="kpi-label">Pending</div>
@@ -2763,7 +2884,7 @@ function renderQuotations() {
     <div class="quot-kpi">
       <div class="kpi-label">Rejected</div>
       <div class="kpi-val" style="color:#e07070">${rejected}</div>
-      <div class="kpi-sub">Quote turned down</div>
+      <div class="kpi-sub">${archivedRejected.length ? `${archivedRejected.length} archived` : 'Quote turned down'}</div>
     </div>
   `;
 
@@ -2772,8 +2893,11 @@ function renderQuotations() {
   document.getElementById('quot-badge').textContent = needsFollowUp > 0 ? needsFollowUp : '';
 
   const notice = document.getElementById('quot-notice');
-  if (quotations.length === 0) {
+  if (filtered.length === 0) {
     notice.style.display = 'block';
+    notice.textContent = quotFilter === 'archived'
+      ? 'No archived quotations yet — this fills up once a Confirmed/Rejected row is deleted from the sheet.'
+      : 'No quotations found in the sheet yet.';
     document.getElementById('quot-body').innerHTML = '';
     return;
   }
@@ -2782,17 +2906,19 @@ function renderQuotations() {
   // ── Table ──
   document.getElementById('quot-body').innerHTML = filtered.map((q,i) => {
     const amountFmt = q.amount ? `$${q.amount.toLocaleString()}` : (q.amountRaw || '—');
-    const { label: statusLabel, cls: statusCls } = quotStatus(q);
-    const matchFmt = q.matchedProject
+    const statusCls = quotStatus({ confirmation: q.status==='Confirmed'?'Y':'', accepted:'', rejected: q.status==='Rejected'?'Y':'', noResponse: q.status==='No Response'?'Y':'' }).cls;
+    const matchFmt = q.isArchived
+      ? '<span style="color:var(--text3);font-size:11px" title="No longer in the Quotation sheet">🗄 Archived</span>'
+      : q.matchedProject
       ? `<span class="qs-awarded" title="${q.matchedProject.name}">✓ ${q.matchedProject.status}</span>`
       : `<span style="color:var(--text3);font-size:11px">No match</span>`;
-    return `<tr>
+    return `<tr style="${q.isArchived?'opacity:0.7':''}">
       <td style="color:var(--text3);font-size:11px">${String(i+1).padStart(3,'0')}</td>
       <td style="max-width:240px;font-size:12px"><strong>${q.desc}</strong></td>
       <td>${q.client}</td>
       <td style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">${amountFmt}</td>
       <td style="font-size:12px;color:var(--text3)">${q.quotDate || '—'}</td>
-      <td><span class="${statusCls}">${statusLabel}</span></td>
+      <td><span class="${statusCls}">${q.status}</span></td>
       <td>${matchFmt}</td>
     </tr>`;
   }).join('');
@@ -3256,12 +3382,36 @@ async function loadSheetData(forceRefresh) {
       name:r[0], client:r[1]||'', value:r[2]||'', startDate:r[3]||'', endDate:r[4]||'', progressPayment:(r[7]||'').trim().toUpperCase()
     }));
     projects = sampleProjects();
+    // Load Confirmed-quotation data too, so blank Project Values can be backfilled below
+    if (!quotCache) { try { await loadQuotations(false); } catch(e) {} }
     renderWorksFromCache();
   } catch(e) {
     // Sheet not publicly accessible — use embedded snapshot
     renderWorksEmbedded();
     document.getElementById('works-last-updated').textContent = '⚠ Using embedded snapshot (sheet not public)';
   }
+}
+
+// Find the best Confirmed-quotation match for a Current/Completed Project row name —
+// the reverse direction of findMatchingProject() used in the Quotation Tracker.
+// Checks live quotations AND archived history, so this still works after a Confirmed
+// row has been deleted from the Quotation sheet.
+function findMatchingQuotationForProject(projectName) {
+  const liveConfirmed = (quotations || [])
+    .filter(q => quotStatus(q).label === 'Confirmed')
+    .map(q => ({ desc: q.desc, amount: q.amount }));
+  const archivedConfirmed = archivedQuotHistory()
+    .filter(h => h.status === 'Confirmed')
+    .map(h => ({ desc: h.desc, amount: h.amount }));
+  const candidates = [...liveConfirmed, ...archivedConfirmed];
+  if (candidates.length === 0) return null;
+  const MATCH_THRESHOLD = 0.5;
+  let best = null, bestScore = 0;
+  for (const q of candidates) {
+    const score = projectTitleMatchScore(projectName, q.desc);
+    if (score > bestScore) { bestScore = score; best = q; }
+  }
+  return bestScore >= MATCH_THRESHOLD ? best : null;
 }
 
 function parseCSV(text) {
@@ -3300,7 +3450,19 @@ function renderWorksFromCache() {
   const mainProjects = curRows.filter(r => !isVO(r));
   const voItems = curRows.filter(r => isVO(r));
 
-  const totalVal      = curRows.reduce((a,r)=>a+parseMoney(r[2]),0);
+  // Resolve each row's value once — fall back to a matched Confirmed quotation's amount
+  // when the sheet's own Project Value is blank, and flag it as such.
+  const resolvedRows = curRows.map(r => {
+    const sheetVal = parseMoney(r[2]);
+    let val = sheetVal, valueFromQuotation = null;
+    if (!sheetVal) {
+      const mq = findMatchingQuotationForProject(r[0]);
+      if (mq && mq.amount) { val = mq.amount; valueFromQuotation = mq; }
+    }
+    return { r, val, valueFromQuotation };
+  });
+
+  const totalVal      = resolvedRows.reduce((a,x)=>a+x.val,0);
   const totalReceived = curRows.reduce((a,r)=>a+parseMoney(r[5]),0);
   const totalRemaining= curRows.reduce((a,r)=>a+parseMoney(r[6]),0);
   const withProgress  = curRows.filter(r=>r[7]==='Y' || r[7]==='y').length;
@@ -3343,9 +3505,9 @@ function renderWorksFromCache() {
           <th>Received</th><th>Remaining</th><th>Prog. Payment</th><th>Schedule</th>
         </tr></thead>
         <tbody>
-          ${curRows.map(r => {
+          ${resolvedRows.map(({r, val, valueFromQuotation}) => {
             const isVORow = isVO(r);
-            const val = parseMoney(r[2]), rec = parseMoney(r[5]), rem = parseMoney(r[6]);
+            const rec = parseMoney(r[5]), rem = parseMoney(r[6]);
             const pct = val > 0 ? (rec/val*100).toFixed(0) : null;
             return `<tr style="${isVORow?'opacity:0.7':''}">
               <td style="font-size:12px${isVORow?';padding-left:20px;color:var(--text3)':''}">
@@ -3354,6 +3516,7 @@ function renderWorksFromCache() {
               <td style="font-size:12px"><span class="tag tag-grey">${r[1]||'—'}</span></td>
               <td style="font-size:12px;font-weight:${isVORow?'400':'600'};font-variant-numeric:tabular-nums">
                 ${val>0?`$${val.toLocaleString()}`:'—'}
+                ${valueFromQuotation?`<span style="display:inline-block;margin-left:5px;font-size:9px;font-weight:700;color:var(--gold-light);background:var(--gold-dim);border:1px solid var(--gold-dim);border-radius:8px;padding:1px 6px;white-space:nowrap" title="Not yet entered in the Current Projects sheet — pulled from the Confirmed quotation '${valueFromQuotation.desc}'">📋 from quote</span>`:''}
               </td>
               <td style="font-size:11px;color:var(--text3)">${r[3]||'—'}</td>
               <td style="font-size:11px;color:var(--text3)">${r[4]||'—'}</td>
@@ -3377,18 +3540,34 @@ function renderWorksFromCache() {
   document.getElementById('acc-completed-badge').textContent = compRows.length;
   document.getElementById('acc-completed-meta').textContent = `${compRows.length} projects`;
 
+  // Same resolution as Current Projects: fall back to a matched Confirmed quotation's amount
+  // when the sheet's own Project Value is blank, flagged the same way.
+  const compResolvedRows = compRows.map(r => {
+    const sheetVal = parseMoney(r[2]);
+    let val = sheetVal, valueFromQuotation = null;
+    if (!sheetVal) {
+      const mq = findMatchingQuotationForProject(r[0]);
+      if (mq && mq.amount) { val = mq.amount; valueFromQuotation = mq; }
+    }
+    return { r, val, valueFromQuotation };
+  });
+
   const compHTML = `
     <div style="overflow-x:auto;padding:4px 0 12px">
       <table>
         <thead><tr>
-          <th>Project</th><th>Client</th>
+          <th>Project</th><th>Client</th><th>Value</th>
           <th>Start</th><th>End</th>
           <th>Yet to Bill</th><th>Yet to Receive</th>
         </tr></thead>
         <tbody>
-          ${compRows.map(r => `<tr>
+          ${compResolvedRows.map(({r, val, valueFromQuotation}) => `<tr>
             <td style="font-size:12px">${r[0]}</td>
             <td style="font-size:12px"><span class="tag tag-grey">${r[1]||'—'}</span></td>
+            <td style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">
+              ${val>0?`$${val.toLocaleString()}`:'—'}
+              ${valueFromQuotation?`<span style="display:inline-block;margin-left:5px;font-size:9px;font-weight:700;color:var(--gold-light);background:var(--gold-dim);border:1px solid var(--gold-dim);border-radius:8px;padding:1px 6px;white-space:nowrap" title="Not yet entered in the Completed Projects sheet — pulled from the Confirmed quotation '${valueFromQuotation.desc}'">📋 from quote</span>`:''}
+            </td>
             <td style="font-size:11px;color:var(--text3)">${r[3]||'—'}</td>
             <td style="font-size:11px;color:var(--text3)">${r[4]||'—'}</td>
             <td style="font-size:12px;color:${parseMoney(r[5])>0?'#e07070':'var(--text3)'}">
