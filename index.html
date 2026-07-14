@@ -3540,8 +3540,10 @@ function renderWorksFromCache() {
   document.getElementById('acc-completed-badge').textContent = compRows.length;
   document.getElementById('acc-completed-meta').textContent = `${compRows.length} projects`;
 
-  // Same resolution as Current Projects: fall back to a matched Confirmed quotation's amount
-  // when the sheet's own Project Value is blank, flagged the same way.
+  // Sheet header: Project List, Client, Project Value, Start Date, End Date, Billed, Received, Balance Remaining
+  // Billed (r[5]) and Received (r[6]) are Y/N flags, NOT dollar figures — the actual outstanding
+  // dollar amount lives in Balance Remaining (r[7]). Previously this table tried to read r[5]/r[6]
+  // as money directly, which is always blank since they're just "Y"/"N" text.
   const compResolvedRows = compRows.map(r => {
     const sheetVal = parseMoney(r[2]);
     let val = sheetVal, valueFromQuotation = null;
@@ -3549,7 +3551,10 @@ function renderWorksFromCache() {
       const mq = findMatchingQuotationForProject(r[0]);
       if (mq && mq.amount) { val = mq.amount; valueFromQuotation = mq; }
     }
-    return { r, val, valueFromQuotation };
+    const billed = billedReceivedFlag(r[5]);
+    const received = billedReceivedFlag(r[6]);
+    const balanceRemaining = parseMoney(r[7]);
+    return { r, val, valueFromQuotation, billed, received, balanceRemaining };
   });
 
   const compHTML = `
@@ -3561,7 +3566,7 @@ function renderWorksFromCache() {
           <th>Yet to Bill</th><th>Yet to Receive</th>
         </tr></thead>
         <tbody>
-          ${compResolvedRows.map(({r, val, valueFromQuotation}) => `<tr>
+          ${compResolvedRows.map(({r, val, valueFromQuotation, billed, received, balanceRemaining}) => `<tr>
             <td style="font-size:12px">${r[0]}</td>
             <td style="font-size:12px"><span class="tag tag-grey">${r[1]||'—'}</span></td>
             <td style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">
@@ -3570,11 +3575,15 @@ function renderWorksFromCache() {
             </td>
             <td style="font-size:11px;color:var(--text3)">${r[3]||'—'}</td>
             <td style="font-size:11px;color:var(--text3)">${r[4]||'—'}</td>
-            <td style="font-size:12px;color:${parseMoney(r[5])>0?'#e07070':'var(--text3)'}">
-              ${parseMoney(r[5])>0?`$${parseMoney(r[5]).toLocaleString()}`:'—'}
+            <td style="font-size:12px;color:${billed==='no'?'#e07070':billed==='unknown'?'var(--gold-light)':'var(--text3)'}">
+              ${billed==='yes' ? '<span style="color:#6dcc95;font-weight:700">✓</span>'
+                : billed==='no' ? `<span style="color:#e07070;font-weight:700">✗</span> ${val>0?`$${val.toLocaleString()}`:'Yet to bill'}`
+                : '?'}
             </td>
-            <td style="font-size:12px;color:${parseMoney(r[6])>0?'#e0a050':'var(--text3)'}">
-              ${parseMoney(r[6])>0?`$${parseMoney(r[6]).toLocaleString()}`:'—'}
+            <td style="font-size:12px;color:${received==='no'?'#e0a050':received==='unknown'?'var(--gold-light)':'var(--text3)'}">
+              ${received==='yes' ? '<span style="color:#6dcc95;font-weight:700">✓</span>'
+                : received==='no' ? `<span style="color:#e07070;font-weight:700">✗</span> ${balanceRemaining>0?`$${balanceRemaining.toLocaleString()}`:'Yet to receive'}`
+                : '?'}
             </td>
           </tr>`).join('')}
         </tbody>
