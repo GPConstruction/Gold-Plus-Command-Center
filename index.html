@@ -578,7 +578,17 @@
     <span id="costs-sheet-sync" style="font-size:11px;color:var(--text3)">Loading…</span>
     <a href="https://docs.google.com/spreadsheets/d/1qQw_1nwVXNFdDvhkZ90zqwGfT7NcjviEBC_3qj2jlpU/edit" target="_blank" class="btn" style="font-size:11px">Open Sheet ↗</a>
   </div>
-  <div id="costs-kpis" class="quot-kpi-grid" style="margin-bottom:16px"></div>
+  <div class="acc-item" style="margin-bottom:16px">
+    <div style="padding:14px 16px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px">Find suppliers for a materials list</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Paste or type the materials needed for a site — one per line — and this looks up the cheapest recorded supplier for each, across every trade.</div>
+      <textarea id="costs-lookup-input" rows="4" placeholder="e.g.&#10;PVC Electrical Tape&#10;Fire Extinguisher 4kg&#10;Concrete Grade 40&#10;18mm Plywood" style="width:100%;background:var(--bg1);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 10px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+      <div style="margin-top:8px">
+        <button class="btn btn-gold" style="font-size:12px" onclick="runCostsLookup()">Find Suppliers</button>
+      </div>
+      <div id="costs-lookup-results" style="margin-top:12px"></div>
+    </div>
+  </div>
   <div id="costs-body"></div>
 </div>
 
@@ -3983,53 +3993,6 @@ function renderCosts() {
   const body = document.getElementById('costs-body');
   if (!body) return;
 
-  // ── Cheapest-supplier KPI summary ──
-  // An item "has a comparison" when it carries one or more `alt` entries — by this data's own
-  // convention, item.price is always the cheapest, and item.alt[] holds the pricier alternatives.
-  const kpiEl = document.getElementById('costs-kpis');
-  if (kpiEl) {
-    let totalCompared = 0, totalSavings = 0;
-    const perTrade = COSTS_TRADES.map(trade => {
-      const compared = trade.items.filter(i => i.alt && i.alt.length);
-      const savings = compared.reduce((sum, i) => {
-        const highestAlt = Math.max(...i.alt.map(a => a.price));
-        return sum + Math.max(0, highestAlt - i.price);
-      }, 0);
-      totalCompared += compared.length;
-      totalSavings += savings;
-      return { trade, count: compared.length, savings };
-    }).filter(t => t.count > 0).sort((a,b) => b.savings - a.savings);
-
-    const topTrade = perTrade[0];
-    const chips = perTrade.map(t =>
-      `<span class="tag tag-grey" style="font-size:11px;margin:2px 4px 2px 0;cursor:pointer" onclick="expandCostsAccordion('${t.trade.id}')">
-        ${t.trade.icon} ${t.trade.label}: ${t.count} item${t.count!==1?'s':''} · save $${t.savings.toFixed(0)}
-      </span>`
-    ).join('');
-
-    kpiEl.innerHTML = `
-      <div class="quot-kpi hl">
-        <div class="kpi-label">Items With Multiple Suppliers</div>
-        <div class="kpi-val">${totalCompared}</div>
-        <div class="kpi-sub">Across ${perTrade.length} trade${perTrade.length!==1?'s':''}</div>
-      </div>
-      <div class="quot-kpi">
-        <div class="kpi-label">Potential Savings</div>
-        <div class="kpi-val" style="color:#6dcc95">$${totalSavings.toFixed(0)}</div>
-        <div class="kpi-sub">If cheapest supplier used every time vs. priciest alt on file</div>
-      </div>
-      <div class="quot-kpi">
-        <div class="kpi-label">Biggest Opportunity</div>
-        <div class="kpi-val" style="font-size:20px">${topTrade ? `${topTrade.trade.icon} ${topTrade.trade.label}` : '—'}</div>
-        <div class="kpi-sub">${topTrade ? `${topTrade.count} comparisons · $${topTrade.savings.toFixed(0)} potential` : 'No comparisons on file yet'}</div>
-      </div>
-      <div class="quot-kpi" style="grid-column: span 3">
-        <div class="kpi-label">By Trade</div>
-        <div style="margin-top:6px">${chips || '<span style="color:var(--text3);font-size:12px">No multi-supplier items recorded yet.</span>'}</div>
-      </div>
-    `;
-  }
-
   body.innerHTML = COSTS_TRADES.map(trade => {
     const itemsHTML = trade.items.map(item => {
       const hasAlt = item.alt && item.alt.length > 0;
@@ -4099,6 +4062,87 @@ function isStale(dateStr) {
     : [parseInt(parts[0]),parseInt(parts[1]),2000+parseInt(parts[2])];
   const d2 = new Date(y,m-1,d);
   return (new Date() - d2) > 365*24*60*60*1000; // older than 1 year
+}
+
+// ── Materials-needed lookup ──
+// The point isn't a project-agnostic "potential savings" figure (that varies too much project to
+// project to be meaningful) — it's letting Gold tell the app what a specific site actually needs
+// and getting back which supplier to buy each thing from, right now, for THIS list.
+function normalizeMaterialText(s) {
+  return (s || '').toLowerCase().replace(/[()'",\.]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function materialMatchScore(query, itemName) {
+  const q = normalizeMaterialText(query), n = normalizeMaterialText(itemName);
+  if (!q || !n) return 0;
+  if (n === q) return 1;
+  if (n.includes(q) || q.includes(n)) return 0.9; // one is fully contained in the other
+  const qWords = q.split(' ').filter(w => w.length > 1);
+  const nWords = n.split(' ').filter(w => w.length > 1);
+  if (!qWords.length || !nWords.length) return 0;
+  const overlap = qWords.filter(w => nWords.some(nw => nw.includes(w) || w.includes(nw))).length;
+  return overlap / Math.max(qWords.length, nWords.length);
+}
+
+function runCostsLookup() {
+  const input = document.getElementById('costs-lookup-input');
+  const resultsEl = document.getElementById('costs-lookup-results');
+  if (!input || !resultsEl) return;
+  const lines = input.value.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) {
+    resultsEl.innerHTML = `<div style="font-size:12px;color:var(--text3)">Enter at least one material above.</div>`;
+    return;
+  }
+
+  const allItems = COSTS_TRADES.flatMap(trade => trade.items.map(item => ({ item, trade })));
+  const MATCH_THRESHOLD = 0.4;
+
+  const rowsHTML = lines.map(line => {
+    const scored = allItems
+      .map(({item, trade}) => ({ item, trade, score: materialMatchScore(line, item.name) }))
+      .filter(x => x.score >= MATCH_THRESHOLD)
+      .sort((a,b) => b.score - a.score);
+
+    if (scored.length === 0) {
+      return `<tr>
+        <td style="font-size:12px">${line}</td>
+        <td colspan="3" style="font-size:12px;color:var(--text3)">No match found — check the sheet directly for this one.</td>
+      </tr>`;
+    }
+
+    const best = scored[0];
+    const { item, trade } = best;
+    const hasAlt = item.alt && item.alt.length > 0;
+    const priceFmt = item.price > 0 ? `$${item.price.toFixed(2)}` : 'TBC';
+    const altFmt = hasAlt
+      ? item.alt.map(a => `${a.supplier||'other'} $${a.price.toFixed(2)}`).join(', ')
+      : '—';
+    // Flag low-confidence matches so Gold knows to double check rather than trusting it blindly
+    const lowConfidence = best.score < 0.7;
+
+    return `<tr>
+      <td style="font-size:12px">${line}${lowConfidence?'<div style="font-size:10px;color:var(--gold-light)">approximate match — verify</div>':''}</td>
+      <td style="font-size:12px">
+        <span class="tag tag-grey" style="font-size:10px">${trade.icon} ${trade.label}</span>
+        <div style="margin-top:2px">${item.name}</div>
+      </td>
+      <td style="font-size:13px;font-weight:700;color:#6dcc95">
+        ${priceFmt}
+        <div style="font-size:11px;font-weight:400;color:var(--text2)">${item.supplier || 'supplier not on file'}</div>
+      </td>
+      <td style="font-size:11px;color:var(--text3)">${altFmt}</td>
+    </tr>`;
+  }).join('');
+
+  resultsEl.innerHTML = `
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>You need</th><th>Matched item</th><th>Cheapest</th><th>Other suppliers on file</th>
+        </tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+    </div>`;
 }
 
 // ── Init ──
