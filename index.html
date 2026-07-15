@@ -578,6 +578,7 @@
     <span id="costs-sheet-sync" style="font-size:11px;color:var(--text3)">Loading…</span>
     <a href="https://docs.google.com/spreadsheets/d/1qQw_1nwVXNFdDvhkZ90zqwGfT7NcjviEBC_3qj2jlpU/edit" target="_blank" class="btn" style="font-size:11px">Open Sheet ↗</a>
   </div>
+  <div id="costs-kpis" class="quot-kpi-grid" style="margin-bottom:16px"></div>
   <div id="costs-body"></div>
 </div>
 
@@ -1708,6 +1709,18 @@ function toggleAccordion(id) {
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
   chevron.classList.toggle('open', !isOpen);
+}
+
+// Used by the Costs-tab KPI chips: force a specific trade's accordion open and scroll to it,
+// rather than toggling — clicking the same chip twice should keep it open, not collapse it.
+function expandCostsAccordion(tradeId) {
+  const id = 'costs-' + tradeId;
+  const body = document.getElementById('acc-' + id + '-body');
+  const chevron = document.getElementById('acc-' + id + '-chevron');
+  if (!body) return;
+  body.style.display = 'block';
+  if (chevron) chevron.classList.add('open');
+  document.getElementById('acc-' + id).scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 
@@ -3720,41 +3733,67 @@ const COSTS_TRADES = [
       { name:'Rebar R10 & R13',             unit:'ton',  price:1370,  updated:'16/10/2024', supplier:'' },
       { name:'Rebar R6 & R8',               unit:'ton',  price:1570,  updated:'16/10/2024', supplier:'' },
       { name:'Links (standard)',            unit:'pc',   price:0.20,  updated:'16/10/2024', supplier:'' },
+      { name:'Links - H10 & H13 > 6 meters',unit:'pc',   price:1.00,  updated:'16/10/2024', supplier:'' },
+      { name:'Links - H16 & H20 > 3 meters',unit:'pc',   price:3.00,  updated:'16/10/2024', supplier:'' },
+      { name:'Links - H25 & H32 > 3 meters',unit:'pc',   price:6.00,  updated:'16/10/2024', supplier:'' },
+      { name:'Bar Chairs (excl. H16/H20/H25/H32)', unit:'pc', price:1.00, updated:'16/10/2024', supplier:'' },
+      { name:'Round Links (H10 & H13 < 3m)',unit:'pc',   price:2.00,  updated:'16/10/2024', supplier:'' },
       { name:'A6 BRC (6000x2400mm)',        unit:'pc',   price:43.30, updated:'17/8/2024',  supplier:'', perM2:3.01 },
       { name:'A7 BRC (6000x2400mm)',        unit:'pc',   price:58.90, updated:'17/8/2024',  supplier:'', perM2:4.09 },
       { name:'A8 BRC (6000x2400mm)',        unit:'pc',   price:70.60, updated:'17/8/2024',  supplier:'', perM2:4.90 },
       { name:'A9 BRC (6000x2400mm)',        unit:'pc',   price:92.40, updated:'17/8/2024',  supplier:'', perM2:6.42 },
       { name:'A10 BRC (6000x2400mm)',       unit:'pc',   price:95.00, updated:'19/5/2025',  supplier:'', perM2:6.60 },
-      { name:'Concrete Grade 35',           unit:'m3',   price:121,   updated:'26/8/2024',  supplier:'' },
+      { name:'Concrete Grade 35',           unit:'m3',   price:134,   updated:'6/6/2026',   supplier:'' },
       { name:'Concrete Grade 40',           unit:'m3',   price:128,   updated:'17/10/2024', supplier:'' },
       { name:'Concrete Grade 45',           unit:'m3',   price:139,   updated:'12/5/2023',  supplier:'' },
+      { name:'Concrete Grade 50',           unit:'m3',   price:134,   updated:'14/7/2026',  supplier:'' },
       { name:'Cube Testing',               unit:'load',  price:8,     updated:'17/10/2024', supplier:'' },
+      { name:'Underload',                  unit:'m3',    price:24,    updated:'14/7/2026',  supplier:'' },
       { name:'BRC Transport',              unit:'trip',  price:200,   updated:'17/8/2024',  supplier:'' },
     ]
   },
   {
     id: 'electrical', icon: '⚡', label: 'Electrical',
     items: [
-      { name:'Avatar On-C 1-Gang Switch',       unit:'pc',  price:1.50,  updated:'', supplier:'' },
-      { name:'Avatar On-C 2-Gang Switch',       unit:'pc',  price:2.50,  updated:'', supplier:'' },
-      { name:'Avatar On-C 3-Gang Switch',       unit:'pc',  price:3.70,  updated:'', supplier:'' },
-      { name:'Avatar On-C 1-Gang Switch 2-Way', unit:'pc',  price:2.00,  updated:'', supplier:'' },
-      { name:'Avatar On-C Heater Switch',       unit:'pc',  price:5.70,  updated:'', supplier:'' },
-      { name:'Avatar On-C 20A DP Switch',       unit:'pc',  price:5.70,  updated:'', supplier:'' },
-      { name:'MK 20A/DP Isolator',              unit:'pc',  price:10.50, updated:'', supplier:'' },
-      { name:'MK 32A/DP Isolator',              unit:'pc',  price:18.00, updated:'', supplier:'' },
-      { name:'MK Honeywell 60W Dimmer',         unit:'pc',  price:17.50, updated:'', supplier:'' },
-      { name:'MK Metalclad Heater',             unit:'pc',  price:30.00, updated:'', supplier:'' },
-      { name:'Schneider 1G W/P Cover',          unit:'pc',  price:5.00,  updated:'', supplier:'' },
+      { name:'Avatar On-C 1-Gang Switch',       unit:'pc',  price:1.50,  updated:'', supplier:'CCM' },
+      { name:'Avatar On-C 2-Gang Switch',       unit:'pc',  price:2.50,  updated:'', supplier:'CCM' },
+      { name:'Avatar On-C 3-Gang Switch',       unit:'pc',  price:3.70,  updated:'', supplier:'CCM' },
+      { name:'Avatar On-C 1-Gang Switch 2-Way', unit:'pc',  price:2.00,  updated:'', supplier:'CCM' },
+      { name:'Avatar On-C Heater Switch',       unit:'pc',  price:5.70,  updated:'', supplier:'CCM' },
+      { name:'Avatar On-C 20A DP Switch',       unit:'pc',  price:5.70,  updated:'', supplier:'CCM' },
+      { name:'MK 20A/DP Isolator',              unit:'pc',  price:10.50, updated:'', supplier:'CCM',
+        alt:[{ price:12.00, supplier:'North East (Schneider 20A/DP Isolator)' }] },
+      { name:'MK 32A/DP Isolator',              unit:'pc',  price:18.00, updated:'', supplier:'CCM' },
+      { name:'MK 32A/DP Isolator IP66',         unit:'pc',  price:18.30, updated:'', supplier:'CCM' },
+      { name:'MK 32A/4P Isolator IP67',         unit:'pc',  price:23.80, updated:'', supplier:'CCM' },
+      { name:'MK Honeywell 60W Dimmer',         unit:'pc',  price:17.50, updated:'', supplier:'CCM' },
+      { name:'MK Metalclad Heater',             unit:'pc',  price:30.00, updated:'', supplier:'CCM' },
+      { name:'Schneider 1G W/P Cover',          unit:'pc',  price:5.00,  updated:'', supplier:'CCM' },
       { name:'PVC Electrical Tape',             unit:'pc',  price:0.40,  updated:'', supplier:'CCM',
         alt:[{ price:0.50, supplier:'Kai Siong' }] },
-      { name:'20mm PVC Adaptor',                unit:'pc',  price:0.20,  updated:'', supplier:'' },
+      { name:'20mm PVC Adaptor',                unit:'pc',  price:0.20,  updated:'', supplier:'CCM' },
+      { name:'HG 13A SSO',                      unit:'pc',  price:6.50,  updated:'06/01/2026', supplier:'CCM' },
+      { name:'HG 13A x 2 SSO',                  unit:'pc',  price:9.10,  updated:'01/07/2026', supplier:'CCM' },
       { name:'MK Metalclad 13A x2 SSO',         unit:'pc',  price:85.00, updated:'1/9/2025', supplier:'' },
       { name:'HG Metalclad 13A x2 SSO',         unit:'pc',  price:73.00, updated:'1/9/2025', supplier:'',
         alt:[{ price:85.00, supplier:'MK Brand' }] },
-      { name:'1.5mm Cable',                     unit:'roll',price:29.80, updated:'24/2/2026',supplier:'' },
+      { name:'80A 30mA Hager 4P RCCB',          unit:'pc',  price:160.00, updated:'', supplier:'CCM' },
+      { name:'Hager 20A TB-10kA',               unit:'pc',  price:4.10,  updated:'', supplier:'' },
+      { name:'2ft Grey Metal Trunking',         unit:'pc',  price:7.70,  updated:'', supplier:'' },
+      { name:'3/4" G.I Conduit Pipe',           unit:'pc',  price:4.30,  updated:'08/05/2025', supplier:'' },
+      { name:'4568 Class 4 20mm² G.I Conduit Pipe', unit:'pc', price:7.50, updated:'', supplier:'' },
+      { name:'1" PVC Trunking',                 unit:'pc',  price:1.30,  updated:'', supplier:'' },
+      { name:'40 x 20 PVC Trunking',            unit:'pc',  price:2.00,  updated:'', supplier:'' },
+      { name:'1.5mm Cable',                     unit:'roll',price:32.00, updated:'7/7/2026', supplier:'' },
       { name:'2.5mm Cable',                     unit:'roll',price:45.00, updated:'24/2/2026',supplier:'' },
-      { name:'4568 Class 4 20mm GI Conduit',    unit:'pc',  price:4.30,  updated:'8/5/2025', supplier:'' },
+      { name:'6mm Cable',                       unit:'roll',price:116.00,updated:'7/7/2026', supplier:'' },
+      { name:'10mm PVC Cable (30m)',            unit:'roll',price:163.00,updated:'', supplier:'' },
+      { name:'10mm PVC Cable 4C x 3mm',         unit:'m',   price:2.50,  updated:'', supplier:'' },
+      { name:'16mm PVC Cable 4C x 3mm',         unit:'m',   price:3.50,  updated:'', supplier:'' },
+      { name:'35mm Cable',                      unit:'m',   price:7.00,  updated:'', supplier:'' },
+      { name:'35mm Cable (100m roll)',          unit:'roll',price:630.00,updated:'', supplier:'' },
+      { name:'50mm Cable',                      unit:'m',   price:9.39,  updated:'', supplier:'' },
+      { name:'50mm Cable (100m roll)',          unit:'roll',price:840.00,updated:'', supplier:'' },
     ]
   },
   {
@@ -3882,6 +3921,52 @@ const COSTS_TRADES = [
       { name:'Straight (ACC)',                          unit:'foot run',price:0.70, updated:'',          supplier:'' },
     ]
   },
+  {
+    id: 'fire', icon: '🧯', label: 'Fire Protection',
+    items: [
+      { name:'Strobe Light',                 unit:'pc', price:25.00, updated:'', supplier:'Fire Armour',
+        alt:[{ price:50.00, supplier:'CCM' }] },
+      { name:'Alarm Bell',                   unit:'pc', price:16.50, updated:'', supplier:'CCM' },
+      { name:'Alarm Call Point',              unit:'pc', price:12.00, updated:'', supplier:'CCM' },
+      { name:'Heat Detector',                 unit:'pc', price:28.00, updated:'', supplier:'CCM' },
+      { name:'Smoke Detector (Materials)',    unit:'No.',price:38.00, updated:'', supplier:'' },
+      { name:'HFAD (Home Fire Alarm Device) (Materials)', unit:'No.', price:48.00, updated:'', supplier:'' },
+      { name:'Fire Extinguisher (2kg) (Dry)', unit:'No.',price:17.00, updated:'', supplier:'Fire Armour',
+        alt:[{ price:38.00, supplier:'(unlabelled)' }] },
+      { name:'Fire Extinguisher (4kg) (Dry)', unit:'No.',price:25.00, updated:'', supplier:'Fire Armour',
+        alt:[{ price:60.00, supplier:'(unlabelled)' }] },
+      { name:'Fire Extinguisher (6kg) (Dry)', unit:'No.',price:33.00, updated:'', supplier:'Fire Armour',
+        alt:[{ price:75.00, supplier:'(unlabelled)' }] },
+      { name:'Fire Extinguisher Signage',     unit:'No.',price:29.00, updated:'', supplier:'' },
+      { name:'Fire Hosereel Signage',         unit:'No.',price:55.00, updated:'', supplier:'Bella Kee' },
+      { name:'Fire Hosereel',                 unit:'No.',price:145.00,updated:'15/7/2026', supplier:'Fire Armour',
+        alt:[{ price:200.00, supplier:'Multron' }, { price:850.00, supplier:'(unlabelled)' }] },
+      { name:'Fire Hosereel Cabinet',          unit:'No.',price:145.00,updated:'15/7/2026', supplier:'Fire Armour' },
+      { name:'Hosereel Pipe - 50mm dia (G.I B Pipe)', unit:'m run', price:58.00, updated:'', supplier:'CK1' },
+      { name:'Sprinkler Main Pipe - 100mm dia (G.I B Pipe)', unit:'m run', price:100.00, updated:'', supplier:'CK1' },
+      { name:'Concealed Type Sprinkler Point - Normal Type', unit:'No.', price:120.00, updated:'', supplier:'Rico' },
+      { name:'Dismantle Concealed Type Sprinkler Point - Normal Type', unit:'No.', price:40.00, updated:'', supplier:'Rico' },
+      { name:'2 Way Pillar Hydrant C/w Cast Iron Cap Ductile Iron', unit:'pc', price:195.00, updated:'', supplier:'Fire Armour' },
+      { name:'FM200 Fire Suppression System',  unit:'No.', price:0,    updated:'', supplier:'' },
+      { name:'FM250 Fire Suppression System',  unit:'No.', price:0,    updated:'', supplier:'' },
+      { name:'Fire Blanket (1800mm x 1800mm)', unit:'No.', price:45.00, updated:'', supplier:'' },
+      { name:'Beam Detectors (Materials — Transmitter + Reflector)', unit:'Set', price:306.00, updated:'', supplier:'Multron',
+        alt:[{ price:1100.00, supplier:'Patent' }] },
+      { name:'Staircase Signage (Long)',       unit:'No.', price:20.00, updated:'', supplier:'Bella Kee' },
+      { name:'Staircase Signage (Square)',     unit:'No.', price:40.00, updated:'', supplier:'Bella Kee' },
+      { name:'A4 Fire Alarm Zone Plan (Acrylic) (Silk Screen)', unit:'No.', price:30.00, updated:'', supplier:'Bella Kee' },
+      { name:'Fire Fighting Access Sticker',   unit:'No.', price:5.50, updated:'', supplier:'Botak Sign' },
+      { name:'Fire Alarm Panel 8 Zone',        unit:'No.', price:0,    updated:'', supplier:'Patent / Multron (price TBC)' },
+      { name:'Fire Alarm Panel 10 Zone',       unit:'No.', price:0,    updated:'', supplier:'' },
+      { name:'Fire Alarm Panel 12 Zone',       unit:'No.', price:1346.00, updated:'', supplier:'Patent' },
+      { name:'1-Hour FRP Single-Leaf Swing Door w/o Vision Panel (1000x2100mm)', unit:'pc', price:900.00, updated:'', supplier:'' },
+      { name:'1-Hour FRP Single-Leaf Swing Door w/ Vision Panel (1000x2100mm)',  unit:'pc', price:1000.00,updated:'', supplier:'' },
+      { name:'1-Hour FRP Double-Leaf Swing Door w/ Vision Panel (1800x2100mm)',  unit:'pc', price:1900.00,updated:'', supplier:'' },
+      { name:'UFO Emergency Lights',           unit:'pc', price:28.00, updated:'22/6/2026', supplier:'CCM' },
+      { name:'Exit Light',                     unit:'pc', price:38.00, updated:'22/6/2026', supplier:'CCM' },
+      { name:'Scarlet Spray Can (Red) (400ml)',unit:'Can', price:3.20, updated:'', supplier:'Rectitude' },
+    ]
+  },
 ];
 
 let costsFilter = 'all';
@@ -3897,6 +3982,53 @@ async function loadCostsSheet(forceRefresh) {
 function renderCosts() {
   const body = document.getElementById('costs-body');
   if (!body) return;
+
+  // ── Cheapest-supplier KPI summary ──
+  // An item "has a comparison" when it carries one or more `alt` entries — by this data's own
+  // convention, item.price is always the cheapest, and item.alt[] holds the pricier alternatives.
+  const kpiEl = document.getElementById('costs-kpis');
+  if (kpiEl) {
+    let totalCompared = 0, totalSavings = 0;
+    const perTrade = COSTS_TRADES.map(trade => {
+      const compared = trade.items.filter(i => i.alt && i.alt.length);
+      const savings = compared.reduce((sum, i) => {
+        const highestAlt = Math.max(...i.alt.map(a => a.price));
+        return sum + Math.max(0, highestAlt - i.price);
+      }, 0);
+      totalCompared += compared.length;
+      totalSavings += savings;
+      return { trade, count: compared.length, savings };
+    }).filter(t => t.count > 0).sort((a,b) => b.savings - a.savings);
+
+    const topTrade = perTrade[0];
+    const chips = perTrade.map(t =>
+      `<span class="tag tag-grey" style="font-size:11px;margin:2px 4px 2px 0;cursor:pointer" onclick="expandCostsAccordion('${t.trade.id}')">
+        ${t.trade.icon} ${t.trade.label}: ${t.count} item${t.count!==1?'s':''} · save $${t.savings.toFixed(0)}
+      </span>`
+    ).join('');
+
+    kpiEl.innerHTML = `
+      <div class="quot-kpi hl">
+        <div class="kpi-label">Items With Multiple Suppliers</div>
+        <div class="kpi-val">${totalCompared}</div>
+        <div class="kpi-sub">Across ${perTrade.length} trade${perTrade.length!==1?'s':''}</div>
+      </div>
+      <div class="quot-kpi">
+        <div class="kpi-label">Potential Savings</div>
+        <div class="kpi-val" style="color:#6dcc95">$${totalSavings.toFixed(0)}</div>
+        <div class="kpi-sub">If cheapest supplier used every time vs. priciest alt on file</div>
+      </div>
+      <div class="quot-kpi">
+        <div class="kpi-label">Biggest Opportunity</div>
+        <div class="kpi-val" style="font-size:20px">${topTrade ? `${topTrade.trade.icon} ${topTrade.trade.label}` : '—'}</div>
+        <div class="kpi-sub">${topTrade ? `${topTrade.count} comparisons · $${topTrade.savings.toFixed(0)} potential` : 'No comparisons on file yet'}</div>
+      </div>
+      <div class="quot-kpi" style="grid-column: span 3">
+        <div class="kpi-label">By Trade</div>
+        <div style="margin-top:6px">${chips || '<span style="color:var(--text3);font-size:12px">No multi-supplier items recorded yet.</span>'}</div>
+      </div>
+    `;
+  }
 
   body.innerHTML = COSTS_TRADES.map(trade => {
     const itemsHTML = trade.items.map(item => {
@@ -3922,7 +4054,7 @@ function renderCosts() {
         <td style="font-size:11px;color:var(--text3)">${item.unit}</td>
         <td style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
             color:${isCheapest?'#6dcc95':'var(--text)'}">
-          $${item.price.toFixed(2)}
+          ${item.price > 0 ? `$${item.price.toFixed(2)}` : '<span style="color:var(--text3);font-size:11px">TBC</span>'}
           ${isCheapest?'<span style="font-size:10px;color:#6dcc95;font-weight:400;margin-left:4px">✓ cheapest</span>':''}
         </td>
         <td style="font-size:11px;color:var(--text3)">${item.updated||'—'}</td>
