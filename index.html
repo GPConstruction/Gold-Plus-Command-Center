@@ -4068,8 +4068,29 @@ function isStale(dateStr) {
 // The point isn't a project-agnostic "potential savings" figure (that varies too much project to
 // project to be meaningful) — it's letting Gold tell the app what a specific site actually needs
 // and getting back which supplier to buy each thing from, right now, for THIS list.
+
+// A few abbreviations/spellings that show up in real material lists but don't literally appear
+// in the sheet's item names — expand the query with these before scoring, so e.g. "fire-rated
+// door" still finds "FRP door" items.
+const MATERIAL_SYNONYMS = [
+  [/\bfire[\s-]?rated\b/g, 'frp'],
+  [/\bfrp\b/g, 'frp fire rated'],
+  [/\bw\/?p\b/g, 'weatherproof'],
+  [/\bs\/s\b/g, 'stainless steel'],
+  [/\bsso\b/g, 'socket outlet'],
+];
+
 function normalizeMaterialText(s) {
-  return (s || '').toLowerCase().replace(/[()'",\.]/g, ' ').replace(/\s+/g, ' ').trim();
+  let t = (s || '').toLowerCase();
+  // Only strip punctuation that ISN'T a decimal point between digits — "2.5mm" must stay "2.5mm",
+  // not become "2 5mm" (which used to cause it to falsely match "1.5mm" and "35mm" on the shared
+  // "5mm" fragment).
+  t = t.replace(/(\d),(?=\d)/g, '$1'); // "1,000" -> "1000" (thousands separator, not decimal)
+  t = t.replace(/[()'",]/g, ' ');
+  t = t.replace(/(?<!\d)\.(?!\d)/g, ' '); // strip periods EXCEPT between digits
+  t = t.replace(/\s+/g, ' ').trim();
+  MATERIAL_SYNONYMS.forEach(([pattern, expansion]) => { t = t.replace(pattern, expansion); });
+  return t;
 }
 
 function materialMatchScore(query, itemName) {
@@ -4080,8 +4101,12 @@ function materialMatchScore(query, itemName) {
   const qWords = q.split(' ').filter(w => w.length > 1);
   const nWords = n.split(' ').filter(w => w.length > 1);
   if (!qWords.length || !nWords.length) return 0;
-  const overlap = qWords.filter(w => nWords.some(nw => nw.includes(w) || w.includes(nw))).length;
-  return overlap / Math.max(qWords.length, nWords.length);
+  // Score against how much of the QUERY is satisfied — a long, descriptive item name (common in
+  // this sheet, e.g. full door specs with dimensions) shouldn't be penalised just for having more
+  // words than the query. This is what let "fire rated doors" fail to match a much longer FRP door
+  // spec that actually contained every one of those words.
+  const overlap = qWords.filter(w => nWords.some(nw => nw === w || (Math.min(nw.length,w.length) >= 4 && (nw.includes(w) || w.includes(nw))))).length;
+  return overlap / qWords.length;
 }
 
 function runCostsLookup() {
@@ -4096,6 +4121,7 @@ function runCostsLookup() {
 
   const allItems = COSTS_TRADES.flatMap(trade => trade.items.map(item => ({ item, trade })));
   const MATCH_THRESHOLD = 0.4;
+  const TIE_MARGIN = 0.15; // candidates within this of the top score are shown as options, not silently dropped
 
   const rowsHTML = lines.map(line => {
     const scored = allItems
@@ -4110,27 +4136,43 @@ function runCostsLookup() {
       </tr>`;
     }
 
-    const best = scored[0];
-    const { item, trade } = best;
-    const hasAlt = item.alt && item.alt.length > 0;
-    const priceFmt = item.price > 0 ? `$${item.price.toFixed(2)}` : 'TBC';
-    const altFmt = hasAlt
-      ? item.alt.map(a => `${a.supplier||'other'} $${a.price.toFixed(2)}`).join(', ')
-      : '—';
-    // Flag low-confidence matches so Gold knows to double check rather than trusting it blindly
-    const lowConfidence = best.score < 0.7;
+    const topScore = scored[0].score;
+    const candidates = scored.filter(s => s.score >= topScore - TIE_MARGIN).slice(0, 5);
+    const lowConfidence = topScore < 0.7;
 
-    return `<tr>
-      <td style="font-size:12px">${line}${lowConfidence?'<div style="font-size:10px;color:var(--gold-light)">approximate match — verify</div>':''}</td>
-      <td style="font-size:12px">
+    if (candidates.length === 1) {
+      const { item, trade } = candidates[0];
+      const hasAlt = item.alt && item.alt.length > 0;
+      const priceFmt = item.price > 0 ? `$${item.price.toFixed(2)}` : 'TBC';
+      const altFmt = hasAlt
+        ? item.alt.map(a => `${a.supplier||'other'} $${a.price.toFixed(2)}`).join(', ')
+        : '—';
+      return `<tr>
+        <td style="font-size:12px">${line}${lowConfidence?'<div style="font-size:10px;color:var(--gold-light)">approximate match — verify</div>':''}</td>
+        <td style="font-size:12px">
+          <span class="tag tag-grey" style="font-size:10px">${trade.icon} ${trade.label}</span>
+          <div style="margin-top:2px">${item.name}</div>
+        </td>
+        <td style="font-size:13px;font-weight:700;color:#6dcc95">
+          ${priceFmt}
+          <div style="font-size:11px;font-weight:400;color:var(--text2)">${item.supplier || 'supplier not on file'}</div>
+        </td>
+        <td style="font-size:11px;color:var(--text3)">${altFmt}</td>
+      </tr>`;
+    }
+
+    // Multiple close candidates (e.g. "AAC Celcon Block" matching 50/75/100mm equally) —
+    // surface all of them instead of silently guessing one.
+    const optionsHTML = candidates.map(({item, trade}) => {
+      const priceFmt = item.price > 0 ? `$${item.price.toFixed(2)}` : 'TBC';
+      return `<div style="margin-bottom:4px">
         <span class="tag tag-grey" style="font-size:10px">${trade.icon} ${trade.label}</span>
-        <div style="margin-top:2px">${item.name}</div>
-      </td>
-      <td style="font-size:13px;font-weight:700;color:#6dcc95">
-        ${priceFmt}
-        <div style="font-size:11px;font-weight:400;color:var(--text2)">${item.supplier || 'supplier not on file'}</div>
-      </td>
-      <td style="font-size:11px;color:var(--text3)">${altFmt}</td>
+        ${item.name} — <strong style="color:#6dcc95">${priceFmt}</strong> ${item.supplier?`(${item.supplier})`:''}
+      </div>`;
+    }).join('');
+    return `<tr>
+      <td style="font-size:12px">${line}<div style="font-size:10px;color:var(--gold-light)">multiple matches — which spec?</div></td>
+      <td colspan="3" style="font-size:12px">${optionsHTML}</td>
     </tr>`;
   }).join('');
 
