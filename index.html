@@ -4269,8 +4269,8 @@ function exportLookupPDF() {
     columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 60 }, 2: { cellWidth: 35 }, 3: { cellWidth: 45 } },
   });
 
-  const filenameSafe = (siteName || 'materials-list').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  doc.save(`${filenameSafe}-cost-lookup-${new Date().toISOString().slice(0,10)}.pdf`);
+  const filenameSafe = (siteName || 'site').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  doc.save(`${filenameSafe}-materialcost-supplierlist-${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
 // ── Init ──
